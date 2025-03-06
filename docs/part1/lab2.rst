@@ -74,6 +74,21 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 `fix_page(page_id, exclusive)`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+**Description:** Retrieves a page from the buffer pool, loading it from disk if necessary, and locks it for either shared (read) or exclusive (write) access. This mechanism ensures controlled, concurrent access to pages in a multi-threaded environment.
+
+**Parameters:**
+
+1. page_id: The unique identifier of the page to be accessed.
+2. exclusive: Determines the lock mode: 
+
+    true: Locks the page exclusively for write operations.
+
+    false: Locks the page in shared mode for read operations.
+
+**Returns:** A reference to the BufferFrame object corresponding to the requested page.
+
+**Implementation steps:**
+
 1. **Check the LRU Queue**:
     - If the page is found in the LRU queue, lock it (shared or exclusive), increment the use counter, and return the page.
 
@@ -100,6 +115,20 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 
 `unfix_page(page_id, is_dirty)`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** Releases a previously fixed page from the buffer pool, updating its status based on whether it was modified. This process is crucial for maintaining data consistency and managing buffer resources efficiently.
+
+**Parameters:**
+
+1. page_id: The unique identifier of the page to be unfixed.
+2. is_dirty: Indicates whether the page was modified during its fixed period:
+
+    true: The page was modified and should be marked as dirty
+
+    false: The page remains unmodified.
+
+
+**Implementation Steps:**
 
 1. **Mark Page as Dirty**:
     - If the page has been modified (i.e., `is_dirty` is true), mark the page as dirty so it will be written to disk before eviction.
