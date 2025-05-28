@@ -88,11 +88,11 @@ You need to complete the following functions in the ``FlatFile`` class:
    -  Load the provided CSV files into the corresponding maps (Single
       threaded).
 
-4. **loadFlatFile_MultiThread:**
-   ``void loadFlatFile_MultiThread()``
+4. **loadMultipleFlatFilesInParallel:**
+   ``void loadMultipleFlatFilesInParallel()``
 
-   -  Load the provided CSV files into the corresponding maps (Multi
-      threaded). This method should be thread-safe.
+   -  Load the provided CSV files into the corresponding maps using
+      multiple threads
 
 5. **incrementPostViews:**
    ``bool incrementPostViews(int post_id, int views_count)``
@@ -126,10 +126,9 @@ You need to complete the following functions in the ``FlatFile`` class:
 Additional Guidance
 -------------------
 
--  **Thread Safety:** Ensure that the functions
-   ``loadFlatFile_MultiThread`` and ``incrementPostViews`` are
-   thread-safe. You might want to use mutexes or other synchronization
-   mechanisms to achieve this.
+-  **Thread Safety:** Ensure that the function
+   ``incrementPostViews`` is thread-safe. You might want to use
+   mutexes or other synchronization mechanisms to achieve this.
 
 -  **CSV Parsing:** You can use standard C++ libraries such as
    ``fstream`` and ``sstream`` for reading and parsing CSV files. Make
