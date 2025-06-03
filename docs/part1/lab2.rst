@@ -113,14 +113,14 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
     - If evicting a dirty page (i.e., a modified page), write it back to disk before removing it from memory.
     - This operation must be done under an exclusive lock to ensure no other threads modify the page while it's being written to disk.
 
-`unfix_page(page_id, is_dirty)`
+`unfix_page(page, is_dirty)`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Releases a previously fixed page from the buffer pool, updating its status based on whether it was modified. This process is crucial for maintaining data consistency and managing buffer resources efficiently.
 
 **Parameters:**
 
-1. page_id: The unique identifier of the page to be unfixed.
+1. page: The page to be unfixed.
 2. is_dirty: Indicates whether the page was modified during its fixed period:
 
     true: The page was modified and should be marked as dirty
