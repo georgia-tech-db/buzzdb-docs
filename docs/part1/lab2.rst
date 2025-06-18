@@ -5,6 +5,8 @@ For the second programming assignment, you will design and implement a buffer ma
 
 This assignment involves a fair amount of code, and we **strongly recommend** starting early to ensure sufficient time for debugging and testing.
 
+For OMSCS Students, module 5 covers the details of buffer management and module 6 covers multi-threading.
+
 Description
 -----------
 
