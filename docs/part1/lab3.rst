@@ -24,7 +24,7 @@ Operations
 
 1. **Lookup**: Navigate through nodes to retrieve the desired value or indicate its absence.
 2. **Insert**: Place a new key-value pair into the appropriate position within the tree, managing node splits as needed.
-3. **Erase**: Remove a key and its associated value, handling potential node merges or redistributions.
+3. **Erase**: Remove a key and its associated value.
 
 Structure
 ~~~~~~~~~
