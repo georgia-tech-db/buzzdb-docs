@@ -22,8 +22,14 @@ Your B+-Tree implementation should be designed as a C++ template accommodating k
 Operations
 ~~~~~~~~~~
 
+The B+-Tree has two types of Nodes, LeafNodes and InnerNodes. The stubs for both are provided. They each support the following operations.
+
 1. **Lookup**: Navigate through nodes to retrieve the desired value or indicate its absence.
-2. **Insert**: Place a new key-value pair into the appropriate position within the tree, managing node splits as needed.
+2. **insert(const KeyT &key, uint64_t split_page)**
+
+
+Place a new key-value pair into the appropriate position within the tree, managing node splits as needed. split_page is the ID of the new node that might need to be created and should be created by caller.
+
 3. **Erase**: Remove a key and its associated value.
 
 Structure
@@ -79,4 +85,7 @@ FAQs
 
 5. **Is it mandatory to use binary search?**
 
-   - Yes, it is mandatory to use binary search.
+   - Yes, it is mandatory to use binary search. 
+   - You can also use std::lower_bound, which returns a pair
+      - index: the position in keys[] where the given key should go.
+      - found (bool): true if the key already exists at that index; false if it’s a new key.
