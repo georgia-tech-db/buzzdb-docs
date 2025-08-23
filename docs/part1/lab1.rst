@@ -47,11 +47,11 @@ You will need to complete the following methods in the `FlatFile` class (do not 
 
 3. **loadFlatFile**  
    `void loadFlatFile()`  
-   Single-threaded load of `users.csv`, `posts.csv`, and `engagements.csv` into the in-memory maps. Build/refresh any secondary indexes (e.g., username → user_id). Ignore empty lines; trim cells; parse numerics strictly.
+   Single-threaded load of `users.csv`, `posts.csv`, and `engagements.csv` into the in-memory maps. Ignore empty lines; trim cells; parse numerics strictly.
 
 4. **loadMultipleFlatFilesInParallel**  
    `void loadMultipleFlatFilesInParallel()`  
-   Load the three CSVs concurrently (e.g., one thread per file), then atomically commit to the main maps under locks. Rebuild indexes and remove dangling engagement records that reference missing users/posts.
+   Load the three CSVs concurrently (e.g., one thread per file), then atomically commit to the main maps under locks.
 
 5. **updatePostViews**  
    `bool updatePostViews(int post_id, int views_count)`  
@@ -59,7 +59,7 @@ You will need to complete the following methods in the `FlatFile` class (do not 
 
 6. **addEngagementRecord**  
    `void addEngagementRecord(Engagement& record)`  
-   Validate foreign-key-like constraints (`record.postId` exists and `record.username` is known). If valid, append to `engagements.csv` and update memory under appropriate locks.
+   Validate foreign-key constraints (`record.postId` exists). If valid, append to `engagements.csv` and update index under appropriate locks.
 
 7. **getAllUserComments**  
    `std::vector<std::pair<int, std::string>> getAllUserComments(int user_id)`  
@@ -71,7 +71,7 @@ You will need to complete the following methods in the `FlatFile` class (do not 
 
 9. **updateUserName**  
    `bool updateUserName(int user_id, std::string new_username)`  
-   Update the username in memory and across **all three CSV files** (`users`, `posts`, `engagements`) consistently and durably (atomic rewrites). Preserve post/engagement counts; return `false` if `user_id` is not found.
+   Update the username across **all three CSV files** (`users`, `posts`, `engagements`) consistently and durably (atomic rewrites).
 
 Additional Guidance
 -------------------
