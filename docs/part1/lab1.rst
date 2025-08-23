@@ -30,6 +30,8 @@ You are given skeleton code to finish and submit. Fill in the methods in the `Fl
    ``./<output_name.out> <test_number>`` For example,
    ``./a.out 2`` runs the second test case. Running without an argument executes all tests. **Gradescope will use these same tests**.
 
+8. **Uploading to Gradescope**: Just upload `buzzdb_lab1.cpp` to Gradescope. No Makefile or zip is required; the autograder will compile your single-file submission and provide the CSV inputs.
+
 Functions to be Completed
 -------------------------
 
