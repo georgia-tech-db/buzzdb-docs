@@ -4,144 +4,127 @@ Assignment 1: C++ Crash Course
 Description
 -----------
 
-The goal of this assignment is to help you brush up on your C++
-programming skills and exercise your skills in Data Structure and
-Algorithm Design. In this assignment, you are to develop a program
-written in C++ that will allow us to extract the required information
-from the provided input CSV files. This is a variant of a flat-file
-database implementation, and you are expected to implement the provided
-empty functions to return the expected output.
+The goal of this assignment is to **refresh your C++ systems programming skills** by implementing a tiny flat-file social media application over three CSV files: `users.csv`, `posts.csv`, and `engagements.csv`. You will load data into memory, maintain simple indexes, support concurrent updates, and persist changes back to CSV atomically.
 
 Implementation Details
 ----------------------
 
-For this programming assignment, you are provided with skeleton code
-that you are expected to complete and submit. You are expected to fill
-in the methods present in the ``FlatFile`` class. You are free to add
-your own helper functions and classes to complete the assignment. Please
-do not change the signature of any functions in the ``FlatFile`` class.
-Here are some more details to help with this assignment:
+You are given skeleton code to finish and submit. Fill in the methods in the `FlatFile` class. You can add helper functions or small classes if they help, but **do not change any existing function signatures in `FlatFile`**. Here are some more details to help with this assignment:
 
-1. **Input Files**: There are three input files in CSV format:
-   ``users.csv``, ``posts.csv``, and ``engagements.csv``. These contain
-   data related to user profiles, their social media posts, and
-   engagements on those posts.
+1. **Input files:** Three CSV files are provided — `users.csv`, `posts.csv`, and `engagements.csv` — containing user details, posts, and engagements.
 
-2. **Function Signatures**: Do not change the function signatures.
-   Complete the missing implementations as instructed in the inline
-   comments to get the desired output. For example, the ``loadFlatFile``
-   function is expected to load the data present in the input CSV files
-   into memory by creating objects of appropriate classes and storing
-   them in relevant data structures for optimal updating and querying.
-   Similarly, complete all the empty functions.
+2. **Function signatures:** Do not change any function signatures. Implement the missing logic as indicated in the inline comments and tests (e.g., `loadFlatFile` should load CSV data into memory using appropriate data structures).
 
-3. **Data Structures**: You are free to use any data structures as long
-   as the implementation passes the provided test cases unless
-   explicitly mentioned to use a specific data structure. In such cases,
-   the submitted code will be manually checked for compliance.
+3. **Data structures:** You may choose any STL containers and supporting structures, unless a specific structure is explicitly required by the assignment.
 
-4. **Single File Implementation**: To make understanding the assignment
-   code simpler, all the classes and logic are implemented in a single
-   C++ file. The main function contains all the test cases that you need
-   to pass. Please review all test case code to understand what is being
-   tested for each function. This will give you ideas about what is
-   expected from the function implementations.
+4. **Single-file implementation:** All classes and logic are contained in a single C++ source file. The `main` function includes all test cases. **Review the test code carefully to understand the expected behavior of each function**.
 
-5. **Class Definitions**: The skeleton code contains definitions of
-   ``User``, ``Post``, and ``Engagement`` classes. You are expected to
-   use these while loading the CSV data into memory.
+5. **Class definitions:** Skeleton definitions for `User`, `Post`, and `Engagement` are provided; use them when loading and manipulating CSV data.
 
-6. **Building the Code**: We only have one C++ file that contains all
-   the code for this assignment. This can be built using the following
+6. **Building the code:** Compile the single source file with the following
    command:
    ``g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>``
-   We treat compiler warnings as errors. Your project will fail to build
-   if there are any compiler warnings.
+   Compiler warnings are treated as errors to encourage more careful systems programming.
 
-7. **Testing Instructions**: To run any particular test case, use:
+7. **Testing Instructions**: Run a specific test with:
    ``./<output_name.out> <test_number>`` For example,
-   ``./a.out 2`` runs the second test case. Not providing any test
-   number runs all the test cases one by one. We have provided all the
-   test cases for this lab. Gradescope will only test your code against
-   these test cases. Your implementation will also be checked for memory
-   leaks. You can check for memory leaks using Valgrind with:
-   ``valgrind --leak-check=yes <output_name.out> ...<args>``
+   ``./a.out 2`` runs the second test case. Running without an argument executes all tests. **Gradescope will use these same tests**.
 
 Functions to be Completed
 -------------------------
 
-You need to complete the following functions in the ``FlatFile`` class:
+You will need to complete the following methods in the `FlatFile` class (do not change any existing function signatures):
 
-1. **Constructor:**
-   ``FlatFile(std::string users_csv_path, std::string posts_csv_path, std::string engagements_csv_path)``
+1. **Constructor**  
+   `FlatFile(std::string users_csv_path, std::string posts_csv_path, std::string engagements_csv_path)`  
+   Store the CSV paths and initialize internal state.
 
-   -  Initialize the class and load the CSV file paths.
-   -  Example:
-      ``FlatFile flatFile("users.csv", "posts.csv", "engagements.csv");``
+2. **Destructor**  
+   `~FlatFile()`  
+   Default cleanup is sufficient unless you add resources that need explicit release.
 
-2. **Destructor:** ``~FlatFile()``
+3. **loadFlatFile**  
+   `void loadFlatFile()`  
+   Single-threaded load of `users.csv`, `posts.csv`, and `engagements.csv` into the in-memory maps. Build/refresh any secondary indexes (e.g., username → user_id). Ignore empty lines; trim cells; parse numerics strictly.
 
-   -  Properly clean up any resources used by the class.
+4. **loadMultipleFlatFilesInParallel**  
+   `void loadMultipleFlatFilesInParallel()`  
+   Load the three CSVs concurrently (e.g., one thread per file), then atomically commit to the main maps under locks. Rebuild indexes and remove dangling engagement records that reference missing users/posts.
 
-3. **loadFlatFile:** ``void loadFlatFile()``
+5. **updatePostViews**  
+   `bool updatePostViews(int post_id, int views_count)`  
+   Thread-safe increment of a post's `views`. Must be **durable**: rewrite the posts CSV using a temp file and an atomic rename in the same directory. Return `false` if `post_id` does not exist.
 
-   -  Load the provided CSV files into the corresponding maps (Single
-      threaded).
+6. **addEngagementRecord**  
+   `void addEngagementRecord(Engagement& record)`  
+   Validate foreign-key-like constraints (`record.postId` exists and `record.username` is known). If valid, append to `engagements.csv` and update memory under appropriate locks.
 
-4. **loadMultipleFlatFilesInParallel:**
-   ``void loadMultipleFlatFilesInParallel()``
+7. **getAllUserComments**  
+   `std::vector<std::pair<int, std::string>> getAllUserComments(int user_id)`  
+   Return all `(postId, comment)` pairs for the specified user where `type == "comment"`, sorted by `(postId, comment)`.
 
-   -  Load the provided CSV files into the corresponding maps using
-      multiple threads
+8. **getAllEngagementsByLocation**  
+   `std::pair<int, int> getAllEngagementsByLocation(std::string location)`  
+   For all users in the given `location`, count engagements and return `{likes_count, comments_count}`.
 
-5. **incrementPostViews:**
-   ``bool incrementPostViews(int post_id, int views_count)``
-
-   -  Increase the views count for the post associated with the post_id
-      by views_count. This method should be thread-safe.
-
-6. **addEngagementRecord:**
-   ``void addEngagementRecord(Engagement& record)``
-
-   -  Insert a new engagement record into the engagements map.
-
-7. **getAllUserComments:**
-   ``std::vector<std::pair<int, std::string>> getAllUserComments(int user_id)``
-
-   -  Return all the comments made by the user across all the posts,
-      ordered by post ID and comment.
-
-8. **getAllEngagementsByLocation:**
-   ``std::pair<int, int> getAllEngagementsByLocation(std::string location)``
-
-   -  Return the count of all engagements (likes and comments) for all
-      users from a given location.
-
-9. **updateUserName:**
-   ``bool updateUserName(int user_id, std::string new_username)``
-
-   -  Update the username for the given user_id across all files where
-      it appears.
+9. **updateUserName**  
+   `bool updateUserName(int user_id, std::string new_username)`  
+   Update the username in memory and across **all three CSV files** (`users`, `posts`, `engagements`) consistently and durably (atomic rewrites). Preserve post/engagement counts; return `false` if `user_id` is not found.
 
 Additional Guidance
 -------------------
 
--  **Thread Safety:** Ensure that the function
-   ``incrementPostViews`` is thread-safe. You might want to use
-   mutexes or other synchronization mechanisms to achieve this.
+- **Thread safety & durability:**  
+  Ensure `updatePostViews` is thread-safe (use `std::mutex` or equivalent) **and** durable. Persist updates with a temp-file rewrite followed by an atomic rename in the same directory so readers never observe partial writes.
 
--  **CSV Parsing:** You can use standard C++ libraries such as
-   ``fstream`` and ``sstream`` for reading and parsing CSV files. Make
-   sure to handle edge cases such as empty fields or malformed CSV
-   lines.
+- **CSV parsing:**  
+  Use standard C++ I/O (`fstream`, `stringstream`). Trim ASCII whitespace, ignore empty lines, and parse integers strictly (reject malformed values). **Handle short or malformed rows gracefully by skipping them**.
 
--  **Error Handling:** Implement robust error handling in your
-   functions. For example, if an invalid ``post_id`` or ``user_id`` is
-   provided, ensure that your functions return appropriate values or
-   handle the error gracefully.
+- **Referential integrity:**  
+  When adding an engagement, verify that both the `postId` exists and the `username` refers to a known user. During parallel loads, remove or ignore dangling engagements that reference missing users/posts.
 
--  **Testing:** Thoroughly test your implementation against the provided
-   test cases. Make sure to understand the test case requirements by
-   reviewing the main function.
+- **Error handling & return values:**  
+  Prefer clear status returns for expected issues (e.g., return `false` if a `post_id` or `user_id` is not found) instead of throwing. Maintain consistent in-memory state and secondary indexes after mutations.
 
-Good luck with your assignment!
+- **Performance considerations:**  
+  Build/refresh lightweight indexes (e.g., username → id) to keep queries efficient. Keep lock scopes minimal, and commit results atomically after parallel loading.
+
+- **Testing expectations:**  
+  Implementations are evaluated by the provided tests in `main`. Read the test code to understand required behaviors, edge cases, and ordering guarantees.
+
+Learning Goals
+--------------
+
+- Learn about file I/O and CSV parsing  
+- Practice using C++ STL containers and building simple indexes  
+- Implement thread-safe and durable updates  
+- Enforce basic referential integrity  
+- Reason about performance (wall time, CPU, memory)
+
+Input Data Model
+----------------
+
+Each CSV includes a header row:
+
+- `users.csv`: `id,username,location`  
+- `posts.csv`: `id,content,username,views`  
+- `engagements.csv`: `id,postId,username,type,comment,timestamp`
+
+Assumptions: ignore empty lines; numeric fields must be integers.
+
+Test Overview 
+--------------
+
+- **Single-threaded load:** Counts/keys match expected.  
+- **Parallel load speedup:** Parallel loading time must be less than that of serial loading time on multi-core; cardinalities must match.  
+- **User comments:** Correct ordering and contents; stable across reload.  
+- **Engagements by location:** Counts match, including after appends.  
+- **Rename user:** Username updated across all files; counts preserved.  
+- **Line-growth safety:** Rewrites still parse when numbers grow digits.  
+- **Resource guardrails:** Under limits for wall time/CPU/RSS during load.  
+- **Atomicity of post view updates:** Concurrent increments persist accurately.  
+- **Invalid post id:** `updatePostViews` returns `false`.  
+- **Reader/Writer isolation:** Readers never see broken state while a writer updates.  
+- **Crash-during-write durability:** File remains parseable; value non-decreasing.  
+- **Referential integrity:** No dangling `engagement.postId`.  
+- **Type sanity:** Numeric columns always parse (no corruption).
