@@ -1,22 +1,16 @@
 Assignment 2: Buffer Manager
 ============================
 
-For the second programming assignment, you will design and implement a buffer manager that handles page management for a database system. The buffer manager will allow pages to be loaded, locked, and accessed concurrently by multiple threads. The core functionality of the buffer manager includes fetching pages from disk, storing them in memory, managing page replacement using the 2Q caching policy, and ensuring efficient thread-safe access to pages. Your implementation should support concurrency and ensure the correct reading and writing of pages to disk.
-
-This assignment involves a fair amount of code, and we **strongly recommend** starting early to ensure sufficient time for debugging and testing.
-
-For OMSCS Students, module 5 covers the details of buffer management and module 6 covers multi-threading.
 
 Description
 -----------
 
-We provide skeleton code required to implement the buffer manager. There is only a single C++ source file where you will complete your implementation. This file already contains a significant portion of working `buzzdb` components covered in the class lectures. The key classes include:
+For the second programming assignment, you will design and implement a buffer manager that handles page management for a database system. The buffer manager will allow pages to be loaded, locked, and accessed concurrently by multiple threads. The core functionality of the buffer manager includes fetching pages from disk, storing them in memory, managing page replacement using the 2Q caching policy, and ensuring efficient thread-safe access to pages. Your implementation should support concurrency and ensure the correct reading and writing of pages to disk.
 
-- **`BufferFrame`**: This class handles individual pages. It stores metadata such as page IDs, dirty flags, and whether the page is locked exclusively. However, it does not directly manage concurrency or page eviction.
+This assignment involves a fair amount of code, and we **strongly recommend** starting early to ensure sufficient time for debugging and testing.
 
-- **`BufferManager`**: This class controls concurrency, page replacement, and the 2Q page replacement strategy. It is responsible for managing shared and exclusive locks, page eviction, and fixing/unfixing pages. You will implement these operations, ensuring proper thread safety and efficient page access.
 
-Key Concepts for Implementation
+Key Requirements
 -------------------------------
 
 Locks and Concurrency
@@ -38,37 +32,18 @@ BufferFrame Dirty Flag
 
 - Modified pages should be marked as dirty. Dirty pages must be written to disk when evicted to prevent data loss. Track when a page is modified and handle the flushing of dirty pages during eviction.
 
-Building the Code
------------------
 
-You can build the code with the following command:
+Implementation Overview
+-----------
 
-```
-g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
-```
+We provide skeleton code required to implement the buffer manager. There is only a single C++ source file where you will complete your implementation. This file already contains a significant portion of working `buzzdb` components covered in the class lectures. The key classes include:
 
-Make sure that your project compiles without any warnings, as we treat warnings as errors.
+- **`BufferFrame`**: This class handles individual pages. It stores metadata such as page IDs, dirty flags, and whether the page is locked exclusively. However, it does not directly manage concurrency or page eviction.
 
-Testing
--------
+- **`BufferManager`**: This class controls concurrency, page replacement, and the 2Q page replacement strategy. It is responsible for managing shared and exclusive locks, page eviction, and fixing/unfixing pages. You will implement these operations, ensuring proper thread safety and efficient page access.
 
-To run a particular test case, use:
 
-```
-./<output_name.out> <test_number>
-```
-
-For example, `./a.out 2` runs the second test case. If no test number is provided, all test cases will be executed one by one.
-
-General Clarifications
-----------------------
-
-- Use `StorageManager` methods to load or flush pages when necessary.
-- Ensure thread-safety by properly managing locks and atomic operations.
-- We encourage you to complete the single-threaded implementation before moving to multi-threaded test cases.
-- Your implementation should pass all tests. Tests with `Multithread` in their names have a 30-second timeout to prevent deadlocks from blocking the testing process.
-
-Implementation Steps
+Implementation Details
 --------------------
 
 The `fix_page` and `unfix_page` methods are the core of your buffer manager implementation. Here's a high-level guide for implementing them:
@@ -89,7 +64,7 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 
 **Returns:** A reference to the BufferFrame object corresponding to the requested page.
 
-**Implementation steps:**
+**Steps to follow:**
 
 1. **Check the LRU Queue**:
     - If the page is found in the LRU queue, lock it (shared or exclusive), increment the use counter, and return the page.
@@ -129,8 +104,7 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 
     false: The page remains unmodified.
 
-
-**Implementation Steps:**
+**Steps to follow:**
 
 1. **Mark Page as Dirty**:
     - If the page has been modified (i.e., `is_dirty` is true), mark the page as dirty so it will be written to disk before eviction.
@@ -140,3 +114,62 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 
 3. **Unlock the Page**:
     - Release the lock on the page (shared or exclusive), based on how it was originally locked.
+
+
+Implementation Clarifications
+----------------------
+
+- Use `StorageManager` methods to load or flush pages when necessary.
+- Policy class: You may (but are not required to) create a new 2Q policy class that inherits from the provided one. It is up to you.
+- Buffer eviction policy:
+
+  1. Evict from **FIFO queue** first.
+  2. If no evictable pages in FIFO, then evict from **LRU queue**.
+  3. If neither queue has evictable pages (all pages are fixed), you must throw a **buffer_full_error**.
+
+- FrameID: It can be treated as an identifier or index for a BufferFrame.
+
+
+General Guidelines
+----------------------
+
+- Ensure thread-safety by properly managing locks and atomic operations.
+- We encourage you to complete the single-threaded implementation before moving to multi-threaded test cases.
+- Your implementation should pass all tests. Tests with `Multithread` in their names have a 30-second timeout to prevent deadlocks from blocking the testing process.
+- Passing earlier tests doesn’t guarantee correctness — **test case 10** exposes deeper flaws in eviction and synchronization logic.
+
+
+Common Pitfalls
+----------------------
+
+You might encounter buffer_full_error in test case 10 likey due to:
+
+- **Improper locking of FIFO/LRU lists in the eviction function** : You need read locks for reads and write locks for modifications to avoid concurrency issues.
+
+- **Flawed Eviction Logic** : Make sure to check the LRU when FIFO is fully in use. Don't miss to consistently update auxiliary data structures (e.g., page ID → frame ID map).
+
+buffer_full_error should happen only when the buffer is at full capacity and all pages are fixed (no evictable frames). Otherwise, eviction should occur instead of throwing an error.
+
+
+Building the Code
+-----------------
+
+You can build the code with the following command:
+
+```
+g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
+```
+
+Make sure that your project compiles without any warnings, as we treat warnings as errors.
+
+
+Testing the Code
+-----------------
+
+To run a particular test case, use:
+
+```
+./<output_name.out> <test_number>
+```
+
+For example, `./a.out 2` runs the second test case. If no test number is provided, all test cases will be executed one by one.
