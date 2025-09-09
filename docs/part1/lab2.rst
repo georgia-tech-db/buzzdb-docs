@@ -130,25 +130,19 @@ Implementation Clarifications
 - FrameID: It can be treated as an identifier or index for a BufferFrame.
 
 
+Implementation Guidelines
+----------------------
+
+- Ensure thread-safety by properly managing locks and atomic operations. You need read locks for reads and write locks for modifications to avoid concurrency issues.
+- Don't miss to consistently update auxiliary data structures (e.g., page ID → frame ID map).
+
+
 General Guidelines
 ----------------------
 
-- Ensure thread-safety by properly managing locks and atomic operations.
 - We encourage you to complete the single-threaded implementation before moving to multi-threaded test cases.
 - Your implementation should pass all tests. Tests with `Multithread` in their names have a 30-second timeout to prevent deadlocks from blocking the testing process.
-- Passing earlier tests doesn’t guarantee correctness — **test case 10** exposes deeper flaws in eviction and synchronization logic.
-
-
-Common Pitfalls
-----------------------
-
-You might encounter buffer_full_error in test case 10 likey due to:
-
-- **Improper locking of FIFO/LRU lists in the eviction function** : You need read locks for reads and write locks for modifications to avoid concurrency issues.
-
-- **Flawed Eviction Logic** : Make sure to check the LRU when FIFO is fully in use. Don't miss to consistently update auxiliary data structures (e.g., page ID → frame ID map).
-
-buffer_full_error should happen only when the buffer is at full capacity and all pages are fixed (no evictable frames). Otherwise, eviction should occur instead of throwing an error.
+- Passing earlier tests doesn’t guarantee correctness. Later cases might expose deeper flaws in eviction and synchronization logic.
 
 
 Building the Code
