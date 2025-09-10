@@ -16,7 +16,7 @@ Key Requirements
 Locks and Concurrency
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- Use `std::shared_mutex` to handle shared/exclusive access to pages. Pages locked in shared mode can be accessed by multiple readers, while exclusive locks are required for write access.
+- Use `std::shared_mutex` via `FrameLockTable` to handle shared/exclusive access to pages. Pages locked in shared mode can be accessed by multiple readers, while exclusive locks are required for write access.
 - When fixing a page, increment the use counter to track how many threads are accessing the page. Decrement this counter when the page is unfixed.
 - Ensure that locks are held for the shortest possible duration, especially during disk I/O operations, to improve concurrency.
 
@@ -119,6 +119,8 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 Implementation Clarifications
 ----------------------
 
+- FrameID: It can be treated as an identifier or index for a BufferFrame.
+- Use `FrameLockTable` methods to implement frame-level locking. You can create std::shared_mutex for each FrameID on demand.
 - Use `StorageManager` methods to load or flush pages when necessary.
 - Policy class: You may (but are not required to) create a new 2Q policy class that inherits from the provided one. It is up to you.
 - Buffer eviction policy:
@@ -127,14 +129,13 @@ Implementation Clarifications
   2. If no evictable pages in FIFO, then evict from **LRU queue**.
   3. If neither queue has evictable pages (all pages are fixed), you must throw a **buffer_full_error**.
 
-- FrameID: It can be treated as an identifier or index for a BufferFrame.
-
 
 Implementation Guidelines
 ----------------------
 
 - Ensure thread-safety by properly managing locks and atomic operations. You need read locks for reads and write locks for modifications to avoid concurrency issues.
-- Don't miss to consistently update auxiliary data structures (e.g., page ID → frame ID map).
+- Do not add coarse-grained locks around fix/unfix operations, since autograder checks depend on usage of `FrameLockTable`.
+- Don't miss to consistently update any auxiliary data structures you create.
 
 
 General Guidelines
