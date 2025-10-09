@@ -38,13 +38,12 @@ The B+-Tree has two types of Nodes: **LeafNodes** and **InnerNodes**. The stubs 
    Determines which child pointer should be followed for a given key using binary search.  
 
 2. **insert(const KeyT &key, uint64_t child_page_id)**  
-   Inserts a separator key and child pointer into the inner node (typically after a lower-level split).  
-   If the node becomes full, it should also be split, and the separator key returned to the parent.
+   Inserts a key and child pointer into the inner node (typically after a lower-level split).
 
 The BTree class has a private method splitNode.
 
 **splitNode:**
-This helper function is responsible for splitting a full node (leaf or inner) and updating parent pointers accordingly. It should create a new node, redistribute keys (and values or child pointers), and propagate the separator key upward. Ensure that parent references remain consistent. If the parent is full, the updates could cascade toward the root.
+This helper function is responsible for splitting a full node (leaf or inner) and updating parent pointers accordingly. It should create a new node, redistribute keys (and values or child pointers), and propagate the key upward. Ensure that parent references remain consistent. If the parent is full, the updates could cascade toward the root.
 
 Structure
 ~~~~~~~~~
