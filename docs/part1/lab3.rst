@@ -11,6 +11,7 @@ In this assignment, you will develop a B+-Tree that supports the following opera
 - **lookup**: Return the value associated with a specific key or indicate that the key is not found.
 - **insert**: Add a new key-value pair to the tree.
 - **erase**: Remove a specified key from the tree.
+- **rangeQuery**: Retrieve all key-value pairs within a specified key range (inclusive of low and high).
 
 You will be utilizing a buffer manager, which simplifies node access via page IDs instead of direct pointers, allowing you to focus solely on the B+-Tree logic.
 
@@ -22,15 +23,28 @@ Your B+-Tree implementation should be designed as a C++ template accommodating k
 Operations
 ~~~~~~~~~~
 
-The B+-Tree has two types of Nodes, LeafNodes and InnerNodes. The stubs for both are provided. They each support the following operations.
+The B+-Tree has two types of Nodes: **LeafNodes** and **InnerNodes**. The stubs for both are provided in the template, and you are expected to implement their methods as described below.
 
-1. **Lookup**: Navigate through nodes to retrieve the desired value or indicate its absence.
-2. **insert(const KeyT &key, uint64_t split_page)**
+**LeafNode:**
+1. **insert(const KeyT &key, const ValueT &value)**  
+   Inserts or updates a key-value pair in sorted order.  
 
+2. **erase(const KeyT &key)**  
+   Removes the given key (and its associated value) from the leaf.  
+   You do not need to handle rebalance or merge operations for this assignment.  
 
-Place a new key-value pair into the appropriate position within the tree, managing node splits as needed. split_page is the ID of the new node that might need to be created and should be created by caller.
+**InnerNode:**
+1. **find_child_index(const KeyT &key)**  
+   Determines which child pointer should be followed for a given key using binary search.  
 
-3. **Erase**: Remove a key and its associated value.
+2. **insert(const KeyT &key, uint64_t child_page_id)**  
+   Inserts a separator key and child pointer into the inner node (typically after a lower-level split).  
+   If the node becomes full, it should also be split, and the separator key returned to the parent.
+
+The BTree class has a private method splitNode.
+
+**splitNode:**
+This helper function is responsible for splitting a full node (leaf or inner) and updating parent pointers accordingly. It should create a new node, redistribute keys (and values or child pointers), and propagate the separator key upward. Ensure that parent references remain consistent. If the parent is full, the updates could cascade toward the root.
 
 Structure
 ~~~~~~~~~
@@ -45,6 +59,7 @@ Key Methods
 - **lookup(KeyT)**: Retrieves a value by its key.
 - **insert(KeyT, ValueT)**: Inserts a key-value pair.
 - **erase(KeyT)**: Deletes a key.
+- **rangeQuery(KeyT, KeyT)**: Retrieves all key-value pairs within a specified range (inclusive of low and high).
 
 Building the Code
 -----------------
@@ -86,6 +101,4 @@ FAQs
 5. **Is it mandatory to use binary search?**
 
    - Yes, it is mandatory to use binary search. 
-   - You can also use std::lower_bound, which returns a pair
-      - index: the position in keys[] where the given key should go.
-      - found (bool): true if the key already exists at that index; false if it’s a new key.
+   - You can also use std::lower_bound/std::upper_bound from the C++ STL.
