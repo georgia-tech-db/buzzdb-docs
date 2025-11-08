@@ -110,48 +110,53 @@ Ensure your code compiles without warnings or errors, as warnings are treated as
 FAQs
 ----
 
-**How do I implement comparison logic for the ``Field`` class?**
+1. **How do I implement comparison logic for the ``Field`` class?**
 
-You need to overload the comparison operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``) for the ``Field`` class to compare field values correctly. This is essential for the ``Select`` operator and any operation that relies on comparing attribute values.
+   - You need to overload the comparison operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``) for the ``Field`` class to compare field values correctly.
+   - This is essential for the ``Select`` operator and any operation that relies on comparing attribute values.
 
-**What is the iterator model used in this assignment?**
+2. **What is the iterator model used in this assignment?**
 
-The iterator model is a way of processing data where each operator requests data from its child by calling ``next()``. If the child returns ``true``, the operator can then process the data. This allows for efficient, pipeline-style execution with minimal memory overhead.
+   - The iterator model is a way of processing data where each operator requests data from its child by calling ``next()``.
+   - If the child returns ``true``, the operator can then process the data. This allows for efficient, pipeline-style execution with minimal memory overhead.
 
-**How should I handle sorting in the ``Sort`` operator?**
+3. **How should I handle sorting in the ``Sort`` operator?**
 
-In the ``Sort`` operator's ``open()`` method, you can read all tuples from the child operator and store them in a data structure like a vector. Then, sort the vector based on the specified attributes and sort directions. In the ``next()`` method, return tuples from the sorted vector one at a time.
+   - In the ``Sort`` operator's ``open()`` method, you can read all tuples from the child operator and store them in a data structure like a vector.
+   - Then, sort the vector based on the specified attributes and sort directions.
+   - In the ``next()`` method, return tuples from the sorted vector one at a time.
 
-**What's the difference between set semantics and bag semantics?**
+4. **What's the difference between set semantics and bag semantics?**
 
-- **Set Semantics**: Duplicate tuples are not included in the result. Operations like ``Union``, ``Intersect``, and ``Except`` eliminate duplicates.
-- **Bag Semantics**: Duplicates are included in the result. Operations like ``UnionAll``, ``IntersectAll``, and ``ExceptAll`` retain duplicates based on their occurrence in the inputs.
+   - **Set Semantics**: Duplicate tuples are not included in the result. Operations like ``Union``, ``Intersect``, and ``Except`` eliminate duplicates.
+   - **Bag Semantics**: Duplicates are included in the result. Operations like ``UnionAll``, ``IntersectAll``, and ``ExceptAll`` retain duplicates based on their occurrence in the inputs.
 
-**How do I extend ``parseQuery`` and ``executeQuery`` for SQL-like queries?**
+5. **How do I extend ``parseQuery`` and ``executeQuery`` for SQL-like queries?**
 
-Parse the supported clauses (``SELECT``, ``FROM``, optional ``JOIN``, optional multi-condition ``WHERE`` separated by ``AND``, optional multi-attribute ``GROUP BY``, one or more aggregates, optional ``ORDER BY``) and construct the operator tree in the required order. Ensure index mapping is correct after joins and projections.
+   - Parse the supported clauses (``SELECT``, ``FROM``, optional ``JOIN``, optional multi-condition ``WHERE`` separated by ``AND``, optional multi-attribute ``GROUP BY``, one or more aggregates, optional ``ORDER BY``) and construct the operator tree in the required order.
+   - Ensure index mapping is correct after joins and projections.
 
-**Can I add additional helper methods or variables?**
+6. **Can I add additional helper methods or variables?**
 
-Yes, you are encouraged to add helper methods and member variables as needed to support your implementation, as long as they adhere to the assignment's requirements.
+   - Yes, you are encouraged to add helper methods and member variables as needed to support your implementation, as long as they adhere to the assignment's requirements.
 
-**How do I handle multiple aggregates in ``HashAggregation``?**
+7. **How do I handle multiple aggregates in ``HashAggregation``?**
 
-You can use a data structure (e.g., a map) to group tuples based on the grouping attributes. Then, compute the aggregates for each group by iterating over the grouped data and calculating the required aggregate functions.
+   - You can use a data structure (e.g., a map) to group tuples based on the grouping attributes.
+   - Then, compute the aggregates for each group by iterating over the grouped data and calculating the required aggregate functions.
 
-**Do I need to handle complex predicates in ``Select``?**
+8. **Do I need to handle complex predicates in ``Select``?**
 
-For this assignment, each predicate consists of a single relational operator between an attribute and another attribute or constant. You are not required to handle compound predicates involving logical operators like ``AND`` or ``OR``.
+   - For this assignment, each predicate consists of a single relational operator between an attribute and another attribute or constant.
+   - You are not required to handle compound predicates involving logical operators like ``AND`` or ``OR``.
 
-**What resources can I refer to for this assignment?**
+9. **What resources can I refer to for this assignment?**
 
-- The skeleton code and provided operator implementations (``Scan``, ``Select``).
-- Lecture notes or textbooks covering database operators and the iterator model.
-- Online resources or documentation on database physical operator implementations.
+   - The skeleton code and provided operator implementations (``Scan``, ``Select``).
+   - Lecture notes or textbooks covering database operators and the iterator model.
+   - Online resources or documentation on database physical operator implementations.
 
-**What are the expected join and aggregation outputs?**
+10. **What are the expected join and aggregation outputs?**
 
-- Join output: ``[left_columns..., right_columns...]``.
-- Aggregation output: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (or all columns from the first tuple if no select list was given to aggregation).
-
----
+   - Join output: ``[left_columns..., right_columns...]``.
+   - Aggregation output: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (or all columns from the first tuple if no select list was given to aggregation).
