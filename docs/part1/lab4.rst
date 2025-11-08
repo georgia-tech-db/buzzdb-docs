@@ -6,7 +6,7 @@ In this assignment, you will implement physical operators using the iterator mod
 Description
 -----------
 
-Your task is to develop physical operators that enable your database to execute SQL queries efficiently. These operators form the core of query execution, handling tasks like filtering data, combining datasets, and computing aggregations.
+Your task is to develop physical operators that enable your database to execute SQL-like queries efficiently, and to extend a simple query layer that parses and executes queries over relations. These operators form the core of query execution, handling tasks like filtering data, combining datasets, sorting, and computing aggregations.
 
 You will implement the following operations:
 
@@ -15,7 +15,7 @@ You will implement the following operations:
 - **Select**: Filters tuples based on a predicate involving relational operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``). Predicates compare an attribute (``l``) to another attribute or constant (``r``).
 - **Sort**: Sorts tuples based on specified attributes and sort directions (ascending or descending).
 - **HashJoin**: Performs an inner equi-join between two inputs on a specified attribute.
-- **HashAggregation**: Groups tuples and computes aggregates (e.g., ``SUM``, ``COUNT``) over the groups.
+- **HashAggregation**: Groups tuples and computes aggregates (``SUM``, ``COUNT``, ``MIN``, ``MAX``) over groups or globally.
 - **Union**: Computes the union of two inputs without duplicates (set semantics).
 - **UnionAll**: Computes the union of two inputs including duplicates (bag semantics).
 - **Intersect**: Retrieves common tuples from two inputs without duplicates (set semantics).
@@ -23,12 +23,20 @@ You will implement the following operations:
 - **Except**: Returns tuples in the first input not present in the second input without duplicates (set semantics).
 - **ExceptAll**: Returns tuples in the first input not present in the second input including duplicates (bag semantics).
 
-Additionally, you will extend the ``parseQuery`` and ``executeQuery`` methods to allow execution of SQL-like join queries using the ``JoinExecutor`` implemented earlier (refer to test 14 for details).
+Additionally, extend the ``parseQuery`` and ``executeQuery`` methods to support:
+
+- ``SELECT {i,j,...}`` attribute lists, or ``{*}``
+- ``FROM {rel}``
+- ``JOIN {rel2} ON {i} = {j}`` (inner equi-join)
+- ``WHERE`` with one or more conditions combined by ``AND``; each condition uses ``{k} <op> <value>``
+- ``GROUP BY {i, j, ...}`` (one or more attributes)
+- Aggregate functions ``COUNT {i}``, ``SUM {i}``, ``MIN {i}``, ``MAX {i}``
+- ``ORDER BY {i}`` (ascending)
 
 Implementation Details
 ----------------------
 
-You will work with the provided C++ skeleton code, which includes the base ``Operator`` class and derived classes for each operator. Your implementation will involve:
+You will work with the provided C++ skeleton code, which includes the base ``Operator`` class and derived classes for each operator, as well as a lightweight CSV-backed relation manager. Your implementation will involve:
 
 1. **Field Comparison Logic**: Implement comparison operators for the ``Field`` class to support predicates in selection and other operations.
 
@@ -41,6 +49,39 @@ You will work with the provided C++ skeleton code, which includes the base ``Ope
 
 You may add additional member functions and variables to support your implementation. Use the provided ``Scan`` and ``Select`` operators as references.
 
+3. **Query parsing and execution (extended)**:
+
+   Extend ``parseQuery`` to extract and store:
+
+   - Selected attributes (1-based in queries -> 0-based internally)
+   - Single-relation ``FROM`` and optional ``JOIN {rel2} ON {i} = {j}``
+   - One or more ``WHERE`` conditions (combined by ``AND``). Each condition is ``{idx} <op> <literal>`` where literal may be int, float, or quoted string
+   - ``GROUP BY`` with one or more attributes
+   - One or more aggregate functions ``COUNT``, ``SUM``, ``MIN``, ``MAX``
+   - ``ORDER BY {i}`` (ascending)
+
+   Implement ``executeQuery`` to build the operator tree in this order:
+
+   - Scan (and optional HashJoin) -> Select -> HashAggregation (if present) -> Project (only if no aggregation) -> Sort
+
+   Index mapping rules you must follow:
+
+   - Query indices are 1-based; convert to 0-based internally
+   - After a join, the output tuple is ``[left_columns..., right_columns...]``. Indices in WHERE, GROUP BY, and aggregates refer to the tuple flowing at that point in the pipeline
+   - When aggregation is present, the aggregation operator emits: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (in the order aggregates were specified). ``ORDER BY`` refers to these emitted indices
+
+4. **Aggregation semantics**:
+
+   - Without ``GROUP BY``: emit a single row containing the aggregate value(s); or, if select attributes are provided to aggregation, emit those columns of the (first) input tuple followed by the aggregate value(s)
+   - With ``GROUP BY``: for each group, emit the selected columns from the first tuple of the group (or all columns if no select list was provided to aggregation), then append aggregate value(s)
+   - Support INT/FLOAT semantics where applicable; MIN/MAX on strings use lexicographic order
+
+5. **Join semantics**:
+
+   - Implement an inner equi-join via HashJoin
+   - Build the hash table on the left input; probe using the right input
+   - The joined tuple order is: all columns from the left tuple, followed by all columns from the right tuple
+
 **Iterator Model**: Operators should interact using the iterator model, where each operator pulls data from its child operator(s).
 
 Testing and Validation
@@ -49,6 +90,9 @@ Testing and Validation
 Your implementation should pass all provided test cases to ensure correctness. Focus on:
 
 - Correctness of each operator's logic.
+- Correct execution order.
+- Correct index mapping after joins and projections.
+- Correct output schema for aggregation.
 - Proper handling of edge cases.
 - Memory management and resource cleanup.
 
@@ -83,9 +127,9 @@ In the ``Sort`` operator's ``open()`` method, you can read all tuples from the c
 - **Set Semantics**: Duplicate tuples are not included in the result. Operations like ``Union``, ``Intersect``, and ``Except`` eliminate duplicates.
 - **Bag Semantics**: Duplicates are included in the result. Operations like ``UnionAll``, ``IntersectAll``, and ``ExceptAll`` retain duplicates based on their occurrence in the inputs.
 
-**How do I extend ``parseQuery`` and ``executeQuery`` for join queries?**
+**How do I extend ``parseQuery`` and ``executeQuery`` for SQL-like queries?**
 
-Modify these methods to parse join queries and construct an operator tree that includes the ``JoinExecutor``. You'll need to recognize join syntax and create appropriate operator instances to handle the join operation.
+Parse the supported clauses (``SELECT``, ``FROM``, optional ``JOIN``, optional multi-condition ``WHERE`` separated by ``AND``, optional multi-attribute ``GROUP BY``, one or more aggregates, optional ``ORDER BY``) and construct the operator tree in the required order. Ensure index mapping is correct after joins and projections.
 
 **Can I add additional helper methods or variables?**
 
@@ -105,8 +149,9 @@ For this assignment, each predicate consists of a single relational operator bet
 - Lecture notes or textbooks covering database operators and the iterator model.
 - Online resources or documentation on database physical operator implementations.
 
-**How does the ``JoinExecutor`` work in this context?**
+**What are the expected join and aggregation outputs?**
 
-The ``JoinExecutor`` performs a join operation between two inputs based on specified attributes. In this assignment, you will integrate it into your operator tree to handle join queries parsed from SQL-like statements.
+- Join output: ``[left_columns..., right_columns...]``.
+- Aggregation output: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (or all columns from the first tuple if no select list was given to aggregation).
 
 ---
