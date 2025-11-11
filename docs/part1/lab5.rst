@@ -13,6 +13,7 @@ You are given C++ code that already provides:
 * An on-disk R-Tree node layout: a header followed by either leaf entries (MBR + rid) or inner entries (MBR + child page id).
 * Utilities for basic Minimum Bounding Rectangle (MBR) math.
 * A test harness that inserts points of interest (POIs) near Georgia Tech.
+* A function for R-Tree invariant checks.
 
 Your task is to complete the R-Tree parts so that:
 
@@ -78,9 +79,14 @@ You will complete the following R-Tree operations (names may match the starter c
     Depth-first search: for every node whose entry overlaps `q`, recurse (if inner) or emit (if leaf).
 
   * `knn(double x, double y, size_t k)`
-    Best-first search using a priority queue keyed by distance from the query point to an entry’s MBR; output k objects.
+    Best-first search using a priority queue keyed by distance from the query point to an entry’s MBR; returns a `vector<pair<uint64_t, double>>` of `(rid, distance)` in increasing distance order.
 
-The harness already has a radius query that is built on top of window query, so once your window query works, radius query should work too.
+The R-Tree class already includes a radius_query(...) helper that is built on top of window_query(...), so once your window query works, radius query will work too
+
+* **Deletion**
+
+  * `erase_point(double x, double y, uint64_t rid)`
+    Find the leaf containing that point/rid entry, remove it, then run the R-Tree condense-tree procedure to fix underfull ancestors.
 
 Implementation Details
 ----------------------
