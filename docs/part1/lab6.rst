@@ -1,4 +1,4 @@
-Assignment 5: Slotted Pages
+Assignment 6: Slotted Pages
 ============================
 
 In this lab, you will be implementing support for slotted pages.
