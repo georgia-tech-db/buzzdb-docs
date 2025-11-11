@@ -104,15 +104,18 @@ Your implementation should follow these steps during insertion:
 For queries, always check MBR overlap before recursing; this prunes the search.
 
 Building the Code
-----------------------
-  
-Compile similar to other labs:
+-----------------
 
 .. code-block:: bash
 
-g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
+   g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
 
-Ensure your code compiles without warnings or errors, as warnings are treated as errors.
+Make sure that your project compiles without any warnings, as we treat warnings as errors.
+
+Testing and Validation
+----------------------
+
+Test your implementation against provided unit tests in the main function. There are few additional test cases beyond the handout on Gradescope.
 
 FAQs
 ----------------------
