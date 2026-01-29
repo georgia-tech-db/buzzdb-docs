@@ -38,15 +38,21 @@ Implementation Overview
 
 We provide skeleton code required to implement the buffer manager. There is only a single C++ source file where you will complete your implementation. This file already contains a significant portion of working `buzzdb` components covered in the class lectures. The key classes include:
 
-- **`BufferFrame`**: This class handles individual pages. It stores metadata such as page IDs, dirty flags, and whether the page is locked exclusively. However, it does not directly manage concurrency or page eviction.
+- **Page**: A simple wrapper around a fixed-size page (4096 bytes) of raw memory. This is the basic unit of storage managed by the buffer manager.
 
-- **`BufferManager`**: This class controls concurrency, page replacement, and the 2Q page replacement strategy. It is responsible for managing shared and exclusive locks, page eviction, and fixing/unfixing pages. You will implement these operations, ensuring proper thread safety and efficient page access.
+- **BufferFrame**: This class handles individual pages. It stores metadata such as page IDs, dirty flags, and whether the page is locked exclusively. However, it does not directly manage concurrency or page eviction.
+
+- **BufferManager**: This class controls concurrency, page replacement, and the 2Q page replacement strategy. It is responsible for managing shared and exclusive locks, page eviction, and fixing/unfixing pages. You will implement these operations, ensuring proper thread safety and efficient page access.
+
+- **PageGuard**: An RAII wrapper that manages the lifecycle of a fixed page. When a `PageGuard` goes out of scope, it unfixes the page and releases the lock via `unfix_page`. This design prevents resource leaks and simplifies error handling.
+
+- **Policy**: An interface for page replacement policies. The provided `TwoQPolicy` class skeleton needs to be completed to implement the 2Q caching strategy, managing FIFO and LRU queues to determine which pages to evict.
 
 
 Implementation Details
 --------------------
 
-The `fix_page` and `unfix_page` methods are the core of your buffer manager implementation. Here's a high-level guide for implementing them:
+The `fix_page` and `unfix_page` methods are the core of your buffer manager implementation. `unfix_page` is called from the `PageGuard` RAII wrapper. Here's a high-level guide for implementing the key methods.
 
 `fix_page(page_id, exclusive)`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,38 +68,38 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 
     false: Locks the page in shared mode for read operations.
 
-**Returns:** A reference to the BufferFrame object corresponding to the requested page.
+**Returns:** A `PageGuard` object that wraps the `BufferFrame`. The guard automatically unfixes the page when it goes out of scope.
 
 **Steps to follow:**
 
-1. **Check the LRU Queue**:
-    - If the page is found in the LRU queue, lock it (shared or exclusive), increment the use counter, and return the page.
+1. **Check if Page is in Memory**:
+    - If the page is already in the buffer pool, update its access info in the policy.
+    - Lock the page (shared or exclusive) and increment the use counter.
+    - Return a `PageGuard` wrapping the frame.
 
-2. **Check the FIFO Queue**:
-    - If the page is in the FIFO queue, promote it to the LRU queue. Lock the page, increment the use counter, and return it.
-
-3. **Page Not Found in Memory**:
+2. **Page Not Found in Memory**:
     - If the page is not in memory, find a free slot in the buffer pool.
-    - If the buffer is full, evict a page from the FIFO queue first. If no evictable pages are in the FIFO queue, attempt eviction from the LRU queue.
-    - Ensure that the eviction process is thread-safe and does not interfere with other threads fixing or unfixing pages.
+    - If the buffer is full, get an eviction candidate from the policy.
+    - Ensure that the eviction process is thread-safe.
 
-4. **Load Page from Disk**:
+3. **Load Page from Disk**:
     - Load the page from disk using `StorageManager`.
-    - Insert the page into the FIFO queue and initialize its metadata (e.g., page ID, lock status).
+    - Add the new page to the policy.
+    - Initialize frame metadata (e.g., page ID, lock, use count).
 
-5. **Lock the Page**:
+4. **Lock the Page**:
     - Lock the page based on the requested access type (shared or exclusive).
     - If the page is locked in shared mode, multiple threads may access it concurrently. If locked exclusively, only one thread may access it.
     - Increment the use counter for the page.
 
-6. **Write Back Dirty Pages**:
+5. **Write Back Dirty Pages**:
     - If evicting a dirty page (i.e., a modified page), write it back to disk before removing it from memory.
-    - This operation must be done under an exclusive lock to ensure no other threads modify the page while it's being written to disk.
+    - Remove the page from the policy.
 
-`unfix_page(page, is_dirty)`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`unfix_page(page, is_dirty)` (Private Method)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Description:** Releases a previously fixed page from the buffer pool, updating its status based on whether it was modified. This process is crucial for maintaining data consistency and managing buffer resources efficiently.
+**Description:** This method is called automatically by the `PageGuard` destructor when a page guard goes out of scope. You typically won't call this method directly. It releases a previously fixed page from the buffer pool, updating its status based on whether it was modified.
 
 **Parameters:**
 
@@ -107,34 +113,63 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 **Steps to follow:**
 
 1. **Mark Page as Dirty**:
-    - If the page has been modified (i.e., `is_dirty` is true), mark the page as dirty so it will be written to disk before eviction.
+    - If `is_dirty` is true, mark the frame as dirty so it will be written to disk before eviction.
 
 2. **Decrement Use Counter**:
-    - Reduce the use counter for the page. If the counter reaches zero, the page can potentially be evicted.
+    - Atomically decrement the use counter for the page. If the counter reaches zero, the page can potentially be evicted.
 
 3. **Unlock the Page**:
-    - Release the lock on the page (shared or exclusive), based on how it was originally locked.
+    - Release the lock on the frame via `FrameLockTable` (shared or exclusive, based on how it was originally locked).
+
+`PageGuard`
+~~~~~~~~~~~
+
+The `PageGuard` class follows the RAII (Resource Acquisition Is Initialization) pattern. When you call `fix_page()`, you receive a `PageGuard` object:
+
+.. code-block:: cpp
+
+    {
+        auto guard = buffer_manager.fix_page(page_id, false);
+        // Access page data
+        uint64_t* data = reinterpret_cast<uint64_t*>(guard->page_data.get());
+        // if data is modified, mark the guard as dirty
+        guard.setDirty();
+    }  // guard goes out of scope here -> page is unfixed
+
+Key properties of `PageGuard`:
+
+- **Automatic unfixing**: No need to manually call `unfix_page()`.
+- **Exception safety**: Even if an exception is thrown, the page will be properly unfixed.
+- **Move semantics**: Guards can be moved but not copied, ensuring single ownership.
+- **Explicit dirty marking**: Call `guard.setDirty()` when you modify the page.
 
 
 Implementation Clarifications
 ----------------------
 
 - FrameID: It can be treated as an identifier or index for a BufferFrame.
-- Use `FrameLockTable` methods to implement frame-level locking. You can create std::shared_mutex for each FrameID on demand.
+- Use `FrameLockTable` methods to implement frame-level locking. You can use it to create std::shared_mutex for each FrameID on demand.
 - Use `StorageManager` methods to load or flush pages when necessary.
-- Policy class: You may (but are not required to) create a new 2Q policy class that inherits from the provided one. It is up to you.
+- Policy class: The provided `TwoQPolicy` class needs to be completed. It manages the FIFO and LRU queues and determines eviction candidates.
+
 - Buffer eviction policy:
 
   1. Evict from **FIFO queue** first.
   2. If no evictable pages in FIFO, then evict from **LRU queue**.
-  3. If neither queue has evictable pages (all pages are fixed), you must throw a **buffer_full_error**.
+  3. If neither queue has evictable pages (all pages are pinned), you must throw a **buffer_full_error**.
+
+- 2Q policy Implementation:
+
+  - First access of a page: Page enters **FIFO queue**.
+  - Second access while in FIFO: Page is promoted to **LRU queue**.
+  - Subsequent accesses in LRU: Page is moved to the end of the **LRU vector**, which represents the most recently used position.
 
 
 Implementation Guidelines
 ----------------------
 
 - Ensure thread-safety by properly managing locks and atomic operations. You need read locks for reads and write locks for modifications to avoid concurrency issues.
-- Do not add coarse-grained locks around fix/unfix operations, since autograder checks depend on usage of `FrameLockTable`.
+- It is fine to use a coarse lock to synchronize access to class-level variables, but you must use `FrameLockTable` to ensure fine-grained read/write synchronization for pinned frames.
 - Don't miss to consistently update any auxiliary data structures you create.
 
 
@@ -142,8 +177,9 @@ General Guidelines
 ----------------------
 
 - We encourage you to complete the single-threaded implementation before moving to multi-threaded test cases.
-- Your implementation should pass all tests. Tests with `Multithread` in their names have a 30-second timeout to prevent deadlocks from blocking the testing process.
-- Passing earlier tests doesn’t guarantee correctness. Later cases might expose deeper flaws in eviction and synchronization logic.
+- Your implementation should pass all tests. Tests with `Multithread` in their names have a timeout to prevent deadlocks from blocking the testing process.
+- Passing earlier tests doesn't guarantee correctness. Later cases might expose deeper flaws in eviction and synchronization logic.
+- **Note:** Gradescope will run a few hidden tests in addition to the provided tests. Ensure your implementation is robust and handles all cases correctly.
 
 
 Building the Code
@@ -151,9 +187,9 @@ Building the Code
 
 You can build the code with the following command:
 
-```
-g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
-```
+.. code-block:: bash
+
+    g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
 
 Make sure that your project compiles without any warnings, as we treat warnings as errors.
 
@@ -163,8 +199,8 @@ Testing the Code
 
 To run a particular test case, use:
 
-```
-./<output_name.out> <test_number>
-```
+.. code-block:: 
+
+    ./<output_name.out> <test_number>
 
 For example, `./a.out 2` runs the second test case. If no test number is provided, all test cases will be executed one by one.
