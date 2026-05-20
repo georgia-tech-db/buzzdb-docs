@@ -17,20 +17,25 @@ You are given skeleton code to finish and submit. Fill in the methods in the `Fl
 
 3. **Data structures:** You may choose any STL containers and supporting structures, unless a specific structure is explicitly required by the assignment.
 
-4. **Single-file implementation:** All classes and logic are contained in a single C++ source file. The `main` function includes all test cases. **Review the test code carefully to understand the expected behavior of each function**.
+4. **Multi-file implementation:** The project is organized into multiple files (including header files under `src/include` and tests in `test/test.cpp`). However, all student-implemented logic should reside in `src/flat_file/flat_file.cpp`. Do not modify other files, as Gradescope will only grade your `flat_file.cpp` submission.
 
-5. **Class definitions:** Skeleton definitions for `User`, `Post`, and `Engagement` are provided; use them when loading and manipulating CSV data.
+5. **Class definitions:** Definitions for `User`, `Post`, and `Engagement` are provided in separate headers under `src/include/`. Use them when loading and manipulating CSV data.
 
-6. **Building the code:** Compile the single source file with the following
-   command:
-   ``g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>``
-   Compiler warnings are treated as errors to encourage more careful systems programming.
+6. **Building the code:** You can compile the project using CMake:
+   
+   .. code-block:: bash
+
+      cmake -B build -S .
+      cmake --build build
+
+   Alternatively, you can compile directly using `g++`:
+   ``g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra src/include/user/user.cpp src/include/post/post.cpp src/include/engagement/engagement.cpp test/test.cpp -Isrc/include/user -Isrc/include/post -Isrc/include/engagement -Isrc/flat_file -I. -o build/lab1.out``
 
 7. **Testing Instructions**: Run a specific test with:
-   ``./<output_name.out> <test_number>`` For example,
-   ``./a.out 2`` runs the second test case. Running without an argument executes all tests. **Gradescope will use these same tests**.
+   ``./build/lab1.out <test_number>`` For example,
+   ``./build/lab1.out 2`` runs the second test case. Running without an argument executes all tests. **Gradescope will use these same tests**.
 
-8. **Uploading to Gradescope**: Just upload `buzzdb_lab1.cpp` to Gradescope. No Makefile or zip is required; the autograder will compile your single-file submission and provide the CSV inputs.
+8. **Uploading to Gradescope**: Just upload `flat_file.cpp` (located at `src/flat_file/flat_file.cpp`) to Gradescope. No Makefile or zip is required; the autograder will compile your single-file submission and provide the CSV inputs.
 
 Functions to be Completed
 -------------------------
@@ -92,7 +97,7 @@ Additional Guidance
   Build/refresh lightweight indexes (e.g., username → id) to keep queries efficient. Keep lock scopes minimal, and commit results atomically after parallel loading.
 
 - **Testing expectations:**  
-  Implementations are evaluated by the provided tests in `main`. Read the test code to understand required behaviors, edge cases, and ordering guarantees.
+  Implementations are evaluated by the provided tests in `test/test.cpp`. Read the test code to understand required behaviors, edge cases, and ordering guarantees.
 
 Learning Goals
 --------------
