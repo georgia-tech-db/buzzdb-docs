@@ -36,11 +36,11 @@ BufferFrame Dirty Flag
 Implementation Overview
 -----------
 
-We provide skeleton code required to implement the buffer manager. There is only a single C++ source file where you will complete your implementation. This file already contains a significant portion of working `buzzdb` components covered in the class lectures. The key classes include:
+We provide skeleton code required to implement the buffer manager. The lab is structured into a modular layout, separating interfaces (headers) and implementation. You will complete your implementation entirely within the `src/buffer/buffer_manager.cpp` file. All header files located in the `src/include/` directory are read-only and contain the definitions of the classes and methods you must implement. The key classes include:
 
 - **Page**: A simple wrapper around a fixed-size page (4096 bytes) of raw memory. This is the basic unit of storage managed by the buffer manager.
 
-- **BufferFrame**: This class handles individual pages. It stores metadata such as page IDs, dirty flags, and whether the page is locked exclusively. However, it does not directly manage concurrency or page eviction.
+- **BufferFrame**: This class handles individual pages. It stores metadata such as page IDs, dirty flags, and whether the page is locked exclusively. A frame stores exactly one single page. If a page is "pinned", that means it's undergoing some operation (read/write) and it cannot be removed from a cache. However, it does not directly manage concurrency or page eviction.
 
 - **BufferManager**: This class controls concurrency, page replacement, and the 2Q page replacement strategy. It is responsible for managing shared and exclusive locks, page eviction, and fixing/unfixing pages. You will implement these operations, ensuring proper thread safety and efficient page access.
 
@@ -124,7 +124,7 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 `PageGuard`
 ~~~~~~~~~~~
 
-The `PageGuard` class follows the RAII (Resource Acquisition Is Initialization) pattern. When you call `fix_page()`, you receive a `PageGuard` object:
+The `PageGuard` class follows the RAII (Resource Acquisition Is Initialization) pattern. When you call `fix_page()`, you receive a `PageGuard` object. **You are required to implement the PageGuard constructor, destructor, move constructor, and move assignment operator.**
 
 .. code-block:: cpp
 
@@ -136,11 +136,12 @@ The `PageGuard` class follows the RAII (Resource Acquisition Is Initialization) 
         guard.setDirty();
     }  // guard goes out of scope here -> page is unfixed
 
-Key properties of `PageGuard`:
+Key properties to implement for `PageGuard`:
 
-- **Automatic unfixing**: No need to manually call `unfix_page()`.
+- **Constructor**: Must initialize the guard with a `BufferManager` instance and the target `BufferFrame`.
+- **Automatic unfixing via Destructor**: No need to manually call `unfix_page()`. The `PageGuard`'s destructor **must** automatically call `BufferManager::unfix_page(...)` to ensure the frame's use counter is decremented and locks are released properly.
+- **Move semantics**: Guards can be moved but not copied, ensuring single ownership. You must implement the move constructor and move assignment operator to cleanly transfer ownership of the underlying page pointer without triggering an accidental `unfix_page` on the old moved-from object.
 - **Exception safety**: Even if an exception is thrown, the page will be properly unfixed.
-- **Move semantics**: Guards can be moved but not copied, ensuring single ownership.
 - **Explicit dirty marking**: Call `guard.setDirty()` when you modify the page.
 
 
@@ -148,7 +149,7 @@ Implementation Clarifications
 ----------------------
 
 - FrameID: It can be treated as an identifier or index for a BufferFrame.
-- Use `FrameLockTable` methods to implement frame-level locking. You can use it to create std::shared_mutex for each FrameID on demand.
+- **FrameLockTable**: The `FrameLockTable` is responsible for providing fine-grained synchronization at the frame level. Instead of using a single giant lock for the entire buffer pool (which would destroy concurrency), you must use `FrameLockTable::lock_shared(FrameID)`, `lock_exclusive(FrameID)`, and corresponding unlock methods to protect individual `BufferFrame`s while they are pinned in memory. For instance, when `fix_page` retrieves a frame, it should acquire the appropriate lock using `FrameLockTable` before returning the `PageGuard`. When `unfix_page` is called, the lock should be released.
 - Use `StorageManager` methods to load or flush pages when necessary.
 - Policy class: The provided `TwoQPolicy` class needs to be completed. It manages the FIFO and LRU queues and determines eviction candidates.
 
@@ -163,6 +164,7 @@ Implementation Clarifications
   - First access of a page: Page enters **FIFO queue**.
   - Second access while in FIFO: Page is promoted to **LRU queue**.
   - Subsequent accesses in LRU: Page is moved to the end of the **LRU vector**, which represents the most recently used position.
+  - The total number of pages across both queues must be less than or equal to **MAX_PAGES_IN_MEMORY**.
 
 
 Implementation Guidelines
@@ -185,13 +187,13 @@ General Guidelines
 Building the Code
 -----------------
 
-You can build the code with the following command:
+We have provided a `Makefile` to simplify the build process. You can build the code with the following command:
 
 .. code-block:: bash
 
-    g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
+    make clean && make
 
-Make sure that your project compiles without any warnings, as we treat warnings as errors.
+Make sure that your project compiles without any warnings, as we treat warnings as errors. The compilation will produce an executable in the `build/` directory.
 
 
 Testing the Code
@@ -199,8 +201,8 @@ Testing the Code
 
 To run a particular test case, use:
 
-.. code-block:: 
+.. code-block:: bash
 
-    ./<output_name.out> <test_number>
+    ./build/lab2.out <test_number>
 
-For example, `./a.out 2` runs the second test case. If no test number is provided, all test cases will be executed one by one.
+For example, `./build/lab2.out 2` runs the second test case. If no test number is provided, all test cases will be executed one by one.
