@@ -13,12 +13,15 @@ In this assignment, you will develop a B+-Tree that supports the following opera
 - **erase**: Remove a specified key from the tree.
 - **rangeQuery**: Retrieve all key-value pairs within a specified key range (inclusive of low and high).
 
-You will be utilizing a buffer manager, which simplifies node access via page IDs instead of direct pointers, allowing you to focus solely on the B+-Tree logic.
+You will be utilizing a buffer manager, which simplifies node access via page IDs instead of direct pointers. 
+
+**Persistent B-Tree Requirement:** 
+Your `BTree` must be **persistent**. This means that the tree is backed by the buffer manager's underlying database file, allowing it to "remember" its state across different executions or database instances. If the buffer manager loads an existing database file containing a previously populated B-Tree, your constructor (`BTree(BufferManager& bm)`) must dynamically reconstruct the tree's state (i.e., locate the `root` node). You can achieve this by fetching a known existing node (e.g., using your `next_page_id` allocation logic) and tracing the `parent_node_id` pointers upward until you reach the root.
 
 Implementation Details
 ----------------------
 
-Your B+-Tree implementation should be designed as a C++ template accommodating key type, value type, comparator, and page size as parameters. This design requires compile-time constants for page size.
+Your B+-Tree implementation should be designed as a C++ template accommodating key type, value type, comparator, and page size as parameters. You are explicitly tasked with calculating the maximum capacity for `InnerNode` and `LeafNode` using `sizeof` arithmetic to compute `kCapacity`.
 
 Operations
 ~~~~~~~~~~
@@ -42,15 +45,15 @@ The B+-Tree has two types of Nodes: **LeafNodes** and **InnerNodes**. The stubs 
 
 The BTree class has a private method splitNode.
 
-**splitNode:**
-This helper function is responsible for splitting a full node (leaf or inner) and updating parent pointers accordingly. It should create a new node, redistribute keys (and values or child pointers), and propagate the key upward. Ensure that parent references remain consistent. If the parent is full, the updates could cascade toward the root.
+**splitNode(std::vector<std::shared_ptr<Node>> path, std::shared_ptr<Node> node):**
+This helper function is responsible for splitting a full node (leaf or inner) and updating parent pointers accordingly. It should create a new node, redistribute keys (and values or child pointers), and propagate the key upward. By utilizing the provided `path` vector of ancestor nodes, you should handle parent updates and any necessary cascading splits internally within this method.
 
 Structure
 ~~~~~~~~~
 
-- **Node**: Base structure with common properties like ID and parent references.
-- **InnerNode**: Manages keys and child node pointers, handling node traversal and splits.
-- **LeafNode**: Stores actual key-value pairs and handles direct data operations.
+- **Node**: Base structure with common properties like ID and parent references (fully provided).
+- **InnerNode**: Manages keys and child node pointers, handling node traversal and splits. The memory layout is strictly defined.
+- **LeafNode**: Stores actual key-value pairs and handles direct data operations. The memory layout is strictly defined.
 
 Key Methods
 ~~~~~~~~~~~
@@ -63,16 +66,20 @@ Key Methods
 Building the Code
 -----------------
 
+The project uses CMake for building. You can build the codebase using standard CMake commands:
+
 .. code-block:: bash
 
-   g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
+   mkdir build && cd build
+   cmake ..
+   make
 
 Make sure that your project compiles without any warnings, as we treat warnings as errors.
 
 Testing and Validation
 ----------------------
 
-Test your implementation against provided unit tests in the main function. These tests instantiate your B+-Tree as `BTree<uint64_t, uint64_t, std::less<uint64_t>, 1024>` to ensure functionality across different scenarios.
+Test your implementation using the provided test suite. The unit tests have been separated from the main source code into dedicated external test files (e.g., `test/test.cpp`). These tests instantiate your B+-Tree as `BTree<uint64_t, uint64_t, std::less<uint64_t>, 1024>` to ensure functionality across different scenarios.
 
 FAQs
 ----
@@ -87,7 +94,7 @@ FAQs
 2. **What are differences between the split methods for inner node and leaf node?**
 
    - Both the inner and leaf nodes' split methods should create one new node. The node undergoing the split will reduce in size and transfer some keys and child pointers/values to the newly created node.
-   - Assigning the parent pointer can be handled internally (since both the original and the newly created nodes will share the same parent). However, updating the child pointers in the parent should be done externally, utilizing the key returned from the split method.
+   - Assigning the parent pointer and updating the parent's child pointers should be handled entirely internally within `splitNode`, utilizing the `path` vector to trace ancestry and cascade splits if necessary.
 
 3. **Will the node's keys array have duplicate values?**
 
