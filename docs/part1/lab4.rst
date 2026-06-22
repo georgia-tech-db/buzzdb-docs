@@ -1,4 +1,4 @@
-Assignment 5: R-Tree
+Assignment 4: R-Tree
 ====================
 
 In this assignment, you will implement the core logic of an on-disk R-Tree on top of a buffer manager. Your tree will support inserting 2D rectangles (MBRs), splitting pages when they overflow, maintaining parent bounding boxes, and answering spatial queries such as window (rectangle) queries and k-nearest neighbor queries.

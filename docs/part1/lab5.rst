@@ -1,4 +1,4 @@
-Assignment 4: Operators
+Assignment 5: Operators
 =======================
 
 In this assignment, you will implement physical operators using the iterator model for your database system. This will involve building various operator classes that perform fundamental database operations such as selection, projection, sorting, joins, aggregation, and set operations.
