@@ -88,6 +88,12 @@ The R-Tree class already includes a radius_query(...) helper that is built on to
   * `erase_point(double x, double y, uint64_t rid)`
     Find the leaf containing that point/rid entry, remove it, then run the R-Tree condense-tree procedure to fix underfull ancestors.
 
+  * `find_leaf(PageID start, const MBR& m, uint64_t rid, uint32_t &out_idx)`
+    Helper function to locate the exact leaf page and index containing the entry matching both the MBR and the rid.
+
+  * `condense_tree(PageID start, std::vector<OrphanLeaf> &Qleaf, std::vector<OrphanInner> &Qinner)`
+    Walk up the tree from the specified node. If a node is underfull, remove its entry from its parent, collect its remaining entries into the orphan queues (Qleaf/Qinner), and propagate upwards.
+
 Implementation Details
 ----------------------
   
