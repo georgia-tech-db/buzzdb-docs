@@ -1,155 +1,162 @@
-Assignment 5: R-Tree
-====================
+Assignment 4: Operators
+=======================
 
-In this assignment, you will implement the core logic of an on-disk R-Tree on top of a buffer manager. Your tree will support inserting 2D rectangles (MBRs), splitting pages when they overflow, maintaining parent bounding boxes, and answering spatial queries such as window (rectangle) queries and k-nearest neighbor queries.
+In this assignment, you will implement physical operators using the iterator model for your database system. This will involve building various operator classes that perform fundamental database operations such as selection, projection, sorting, joins, aggregation, and set operations.
 
 Description
-----------------------
-  
-You are given C++ code that already provides:
+-----------
 
-* A `StorageManager` that reads/writes fixed-size pages (4KB) to a `.dat` file.
-* A pin-aware LRU `BufferManager` that lets you load a page, edit it, and flush it.
-* An on-disk R-Tree node layout: a header followed by either leaf entries (MBR + rid) or inner entries (MBR + child page id).
-* Utilities for basic Minimum Bounding Rectangle (MBR) math.
-* A test harness that inserts points of interest (POIs) near Georgia Tech.
-* A function for R-Tree invariant checks.
+Your task is to develop physical operators that enable your database to execute SQL-like queries efficiently, and to extend a simple query layer that parses and executes queries over relations. These operators form the core of query execution, handling tasks like filtering data, combining datasets, sorting, and computing aggregations.
 
-Your task is to complete the R-Tree parts so that:
+You will implement the following operations:
 
-1. Inserts go to the correct leaf.
-2. Overfull nodes are split using the R-Tree quadratic split strategy.
-3. Splits are propagated upward, creating a new root if needed.
-4. Parent MBRs are kept consistent with their children.
-5. Window queries return all objects overlapping a query rectangle.
-6. kNN queries return the k closest objects to a point.
-7. The provided tests pass.
+- **Print**: Outputs tuples with attributes separated by commas and tuples separated by newlines.
+- **Projection**: Generates tuples containing a subset of attributes.
+- **Select**: Filters tuples based on a predicate involving relational operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``). Predicates compare an attribute (``l``) to another attribute or constant (``r``).
+- **Sort**: Sorts tuples based on specified attributes and sort directions (ascending or descending).
+- **HashJoin**: Performs an inner equi-join between two inputs on a specified attribute.
+- **HashAggregation**: Groups tuples and computes aggregates (``SUM``, ``COUNT``, ``MIN``, ``MAX``) over groups or globally.
+- **Union**: Computes the union of two inputs without duplicates (set semantics).
+- **UnionAll**: Computes the union of two inputs including duplicates (bag semantics).
+- **Intersect**: Retrieves common tuples from two inputs without duplicates (set semantics).
+- **IntersectAll**: Retrieves common tuples from two inputs including duplicates (bag semantics).
+- **Except**: Returns tuples in the first input not present in the second input without duplicates (set semantics).
+- **ExceptAll**: Returns tuples in the first input not present in the second input including duplicates (bag semantics).
 
-All coordinates can be treated as plain 2D values; no special lat/long handling is required.
+Additionally, extend the ``parseQuery`` and ``executeQuery`` methods to support:
 
-What You Will Implement
-----------------------
-You will complete the following R-Tree operations (names may match the starter code):
-
-* **Insert**
-
-  * `insert(const MBR& m, uint64_t rid)`
-    Locate the appropriate leaf, insert the entry, and handle overflow.
-
-* **Subtree choice**
-
-  * `choose_subtree(PageID start, const MBR& m)`
-    Starting from the root, at each inner node pick the child needing the *smallest enlargement* to contain `m` (tie-break by area, then by count), until you reach a leaf.
-
-* **Insert into leaf + split**
-
-  * `insert_in_leaf(PageID pid, const MBR& m, uint64_t rid)`
-    If there is room in the leaf, append. If not, run the quadratic split on the leaf entries.
-
-* **Quadratic split (leaf and inner)**
-
-  Use the standard R-Tree quadratic split:
-
-  * pick two “seed” entries that would waste the most area if grouped together,
-  * assign remaining entries to the group that needs the least enlargement,
-  * respect min-fill.
-
-* **Split propagation**
-
-  * `adjust_after_split(PageID original, PageID sibling)`
-    If the original node had a parent, insert the new sibling into the parent and split again if the parent overflows. If there was no parent (we split the root), create a new root with two children.
-
-  * `insert_subtree_entry(const MBR& m, PageID child, uint32_t child_level)`
-    Insert a newly created child page into the correct tree level.
-
-  * `choose_subtree_to_level(PageID start, const MBR& m, uint32_t want_level)`
-    Variant of subtree choice that stops at a particular level (used when inserting an internal node).
-
-* **MBR maintenance**
-
-  * `MBR compute_node_mbr(PageID pid)`
-    Recompute the bounding box of a node from all of its entries.
-
-  * `void update_ancestors(PageID start)`
-    After a change to a node, walk up the parent chain and refresh the MBRs stored in ancestor entries.
-
-* **Queries**
-
-  * `window_query(const MBR& q, Fn visit)`
-    Depth-first search: for every node whose entry overlaps `q`, recurse (if inner) or emit (if leaf).
-
-  * `knn(double x, double y, size_t k)`
-    Best-first search using a priority queue keyed by distance from the query point to an entry’s MBR; returns a `vector<pair<uint64_t, double>>` of `(rid, distance)` in increasing distance order.
-
-The R-Tree class already includes a radius_query(...) helper that is built on top of window_query(...), so once your window query works, radius query will work too
-
-* **Deletion**
-
-  * `erase_point(double x, double y, uint64_t rid)`
-    Find the leaf containing that point/rid entry, remove it, then run the R-Tree condense-tree procedure to fix underfull ancestors.
+- ``SELECT {i,j,...}`` attribute lists, or ``{*}``
+- ``FROM {rel}``
+- ``JOIN {rel2} ON {i} = {j}`` (inner equi-join)
+- ``WHERE`` with one or more conditions combined by ``AND``; each condition uses ``{k} <op> <value>``
+- ``GROUP BY {i, j, ...}`` (one or more attributes)
+- Aggregate functions ``COUNT {i}``, ``SUM {i}``, ``MIN {i}``, ``MAX {i}``
+- ``ORDER BY {i}`` (ascending)
 
 Implementation Details
 ----------------------
-  
-You will work with the provided C++ skeleton, which already defines:
 
-* page size and node layout,
-* helper casts to interpret a page as a header + leaf/inner entries,
-* functions to allocate a new page from the underlying file,
-* parameterization of max/min entries per node based on the page size.
+You will work with the provided C++ skeleton code, which includes the base ``Operator`` class and derived classes for each operator, as well as a lightweight CSV-backed relation manager. Your implementation will involve:
 
-Your implementation should follow these steps during insertion:
+1. **Field Comparison Logic**: Implement comparison operators for the ``Field`` class to support predicates in selection and other operations.
 
-1. Start at the root and call the subtree-choice routine to find a leaf.
-2. Insert into the leaf. If the leaf overflows:
+2. **Operator Classes**: Implement the ``open()``, ``next()``, and ``close()`` methods for each operator. Where applicable, implement the ``get_output()`` method to retrieve the current tuple.
 
-   * run quadratic split (produces two nodes),
-   * propagate this split upward using the adjust routine.
-3. After any change, recompute MBRs where needed and update ancestors.
+   - ``open()``: Initialize the operator before execution.
+   - ``next()``: Retrieve the next tuple. Return ``true`` if a tuple is available.
+   - ``close()``: Release resources after execution.
+   - ``get_output()``: Return the pointers to the current tuple's fields after a successful ``next()``.
 
-For queries, always check MBR overlap before recursing; this prunes the search.
+You may add additional member functions and variables to support your implementation. Use the provided ``Scan`` and ``Select`` operators as references.
+
+3. **Query parsing and execution (extended)**:
+
+   Extend ``parseQuery`` to extract and store:
+
+   - Selected attributes (1-based in queries -> 0-based internally)
+   - Single-relation ``FROM`` and optional ``JOIN {rel2} ON {i} = {j}``
+   - One or more ``WHERE`` conditions (combined by ``AND``). Each condition is ``{idx} <op> <literal>`` where literal may be int, float, or quoted string
+   - ``GROUP BY`` with one or more attributes
+   - One or more aggregate functions ``COUNT``, ``SUM``, ``MIN``, ``MAX``
+   - ``ORDER BY {i}`` (ascending)
+
+   Implement ``executeQuery`` to build the operator tree in this order:
+
+   - Scan (and optional HashJoin) -> Select -> HashAggregation (if present) -> Project (only if no aggregation) -> Sort
+
+   Index mapping rules you must follow:
+
+   - Query indices are 1-based; convert to 0-based internally
+   - After a join, the output tuple is ``[left_columns..., right_columns...]``. Indices in WHERE, GROUP BY, and aggregates refer to the tuple flowing at that point in the pipeline
+   - When aggregation is present, the aggregation operator emits: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (in the order aggregates were specified). ``ORDER BY`` refers to these emitted indices
+
+4. **Aggregation semantics**:
+
+   - Without ``GROUP BY``: emit a single row containing the aggregate value(s); or, if select attributes are provided to aggregation, emit those columns of the (first) input tuple followed by the aggregate value(s)
+   - With ``GROUP BY``: for each group, emit the selected columns from the first tuple of the group (or all columns if no select list was provided to aggregation), then append aggregate value(s)
+   - Support INT/FLOAT semantics where applicable; MIN/MAX on strings use lexicographic order
+
+5. **Join semantics**:
+
+   - Implement an inner equi-join via HashJoin
+   - Build the hash table on the left input; probe using the right input
+   - The joined tuple order is: all columns from the left tuple, followed by all columns from the right tuple
+
+**Iterator Model**: Operators should interact using the iterator model, where each operator pulls data from its child operator(s).
+
+Testing and Validation
+----------------------
+
+Your implementation should pass all provided test cases to ensure correctness. Focus on:
+
+- Correctness of each operator's logic.
+- Correct execution order.
+- Correct index mapping after joins and projections.
+- Correct output schema for aggregation.
+- Proper handling of edge cases.
+- Memory management and resource cleanup.
 
 Building the Code
 -----------------
+
+Compile your code using:
 
 .. code-block:: bash
 
    g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
 
-Make sure that your project compiles without any warnings, as we treat warnings as errors.
-
-Testing and Validation
-----------------------
-
-Test your implementation against provided unit tests in the main function. There are few additional test cases beyond the handout on Gradescope.
+Ensure your code compiles without warnings or errors, as warnings are treated as errors.
 
 FAQs
-----------------------
-  
-1. **Do I need to handle latitude/longitude or real earth distance?**
+----
 
-   No. Treat all coordinates as simple 2D numbers. The dataset looks geographic, but your R-Tree logic only needs axis-aligned MBRs.
+1. **How do I implement comparison logic for the ``Field`` class?**
 
-2. **How do I pick which child to descend into on insert?**
+   - You need to overload the comparison operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``) for the ``Field`` class to compare field values correctly.
+   - This is essential for the ``Select`` operator and any operation that relies on comparing attribute values.
 
-   Use the R-Tree rule: choose the child whose MBR needs the *least enlargement* to contain the new entry. If tied, pick the one with smaller area; if still tied, pick the one with fewer entries.
+2. **What is the iterator model used in this assignment?**
 
-3. **What if a node overflows after I insert?**
+   - The iterator model is a way of processing data where each operator requests data from its child by calling ``next()``.
+   - If the child returns ``true``, the operator can then process the data. This allows for efficient, pipeline-style execution with minimal memory overhead.
 
-   Run the quadratic split on that node. Then insert the new sibling into the parent. If the parent overflows, repeat the process upward. If you split the root, create a new root with two children.
+3. **How should I handle sorting in the ``Sort`` operator?**
 
-4. **Why do I have to recompute MBRs?**
+   - In the ``Sort`` operator's ``open()`` method, you can read all tuples from the child operator and store them in a data structure like a vector.
+   - Then, sort the vector based on the specified attributes and sort directions.
+   - In the ``next()`` method, return tuples from the sorted vector one at a time.
 
-   Because parent nodes store bounding boxes for their children. After you insert or split, those boxes may have changed. If they are not updated, window and kNN queries may miss results.
+4. **What's the difference between set semantics and bag semantics?**
 
-5. **What’s the difference between window query and kNN?**
+   - **Set Semantics**: Duplicate tuples are not included in the result. Operations like ``Union``, ``Intersect``, and ``Except`` eliminate duplicates.
+   - **Bag Semantics**: Duplicates are included in the result. Operations like ``UnionAll``, ``IntersectAll``, and ``ExceptAll`` retain duplicates based on their occurrence in the inputs.
 
-   Window query returns *all* objects that overlap a rectangle. kNN returns the *k closest* objects to a point and stops after k, using a best-first traversal.
+5. **How do I extend ``parseQuery`` and ``executeQuery`` for SQL-like queries?**
 
-6. **Where do page IDs come from?**
+   - Parse the supported clauses (``SELECT``, ``FROM``, optional ``JOIN``, optional multi-condition ``WHERE`` separated by ``AND``, optional multi-attribute ``GROUP BY``, one or more aggregates, optional ``ORDER BY``) and construct the operator tree in the required order.
+   - Ensure index mapping is correct after joins and projections.
 
-   Use the provided page-allocation function in the R-Tree. It extends the underlying file and returns a new page id.
+6. **Can I add additional helper methods or variables?**
 
-7. **Can I write small helpers inside the R-Tree?**
+   - Yes, you are encouraged to add helper methods and member variables as needed to support your implementation, as long as they adhere to the assignment's requirements.
 
-   Yes, as long as you keep the on-disk layout (header + entries) unchanged and keep using the supplied buffer manager API.
+7. **How do I handle multiple aggregates in ``HashAggregation``?**
+
+   - You can use a data structure (e.g., a map) to group tuples based on the grouping attributes.
+   - Then, compute the aggregates for each group by iterating over the grouped data and calculating the required aggregate functions.
+
+8. **Do I need to handle complex predicates in ``Select``?**
+
+   - For this assignment, each predicate consists of a single relational operator between an attribute and another attribute or constant.
+   - You are not required to handle compound predicates involving logical operators like ``AND`` or ``OR``.
+
+9. **What resources can I refer to for this assignment?**
+
+   - The skeleton code and provided operator implementations (``Scan``, ``Select``).
+   - Lecture notes or textbooks covering database operators and the iterator model.
+   - Online resources or documentation on database physical operator implementations.
+
+10. **What are the expected join and aggregation outputs?**
+
+   - Join output: ``[left_columns..., right_columns...]``.
+   - Aggregation output: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (or all columns from the first tuple if no select list was given to aggregation).

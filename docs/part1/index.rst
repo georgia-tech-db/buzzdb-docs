@@ -17,5 +17,5 @@ These are the topics that we will cover in this course:
 - `Lab 1: External Sort <lab1.html>`__
 - `Lab 2: Buffer Management <lab2.html>`__
 - `Lab 3: B-Tree <lab3.html>`__
-- `Lab 4: Query Execution <lab4.html>`__
-- `Lab 5: RTree <lab5.html>`__
+- `Lab 4: RTree <lab4.html>`__
+- `Lab 5: Query Execution <lab5.html>`__
