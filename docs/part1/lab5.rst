@@ -1,93 +1,143 @@
 Assignment 5: Operators
 =======================
 
-In this assignment, you will implement physical operators using the iterator model for your database system. This will involve building various operator classes that perform fundamental database operations such as selection, projection, sorting, joins, aggregation, and set operations.
+In this lab, you will implement physical database operators using the iterator model and complete the student-owned parts of a small query parser and executor.
 
-Description
------------
+Submission Contract
+-------------------
 
-Your task is to develop physical operators that enable your database to execute SQL-like queries efficiently, and to extend a simple query layer that parses and executes queries over relations. These operators form the core of query execution, handling tasks like filtering data, combining datasets, sorting, and computing aggregations.
+Submit exactly one file named ``operators.cpp``. In the provided skeleton ZIP file, that file is located at ``student_lab_5/src/operators/operators.cpp``.
 
-You will implement the following operations:
+All headers and every other ``.cpp`` file are fixed infrastructure. Do not modify or submit them. The fixed headers define the required member variables, API signatures, and state invariants. You may add file-local helper functions or types inside ``operators.cpp``, but you may not change the provided interfaces or class layouts.
 
-- **Print**: Outputs tuples with attributes separated by commas and tuples separated by newlines.
-- **Projection**: Generates tuples containing a subset of attributes.
-- **Select**: Filters tuples based on a predicate involving relational operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``). Predicates compare an attribute (``l``) to another attribute or constant (``r``).
-- **Sort**: Sorts tuples based on specified attributes and sort directions (ascending or descending).
-- **HashJoin**: Performs an inner equi-join between two inputs on a specified attribute.
-- **HashAggregation**: Groups tuples and computes aggregates (``SUM``, ``COUNT``, ``MIN``, ``MAX``) over groups or globally.
-- **Union**: Computes the union of two inputs without duplicates (set semantics).
-- **UnionAll**: Computes the union of two inputs including duplicates (bag semantics).
-- **Intersect**: Retrieves common tuples from two inputs without duplicates (set semantics).
-- **IntersectAll**: Retrieves common tuples from two inputs including duplicates (bag semantics).
-- **Except**: Returns tuples in the first input not present in the second input without duplicates (set semantics).
-- **ExceptAll**: Returns tuples in the first input not present in the second input including duplicates (bag semantics).
+The provided ``operators.cpp`` skeleton compiles before you fill in its TODOs. Successful compilation alone does not mean the operators are complete.
 
-Additionally, extend the ``parseQuery`` and ``executeQuery`` methods to support:
+What You Implement
+------------------
 
-- ``SELECT {i,j,...}`` attribute lists, or ``{*}``
-- ``FROM {rel}``
-- ``JOIN {rel2} ON {i} = {j}`` (inner equi-join)
-- ``WHERE`` with one or more conditions combined by ``AND``; each condition uses ``{k} <op> <value>``
-- ``GROUP BY {i, j, ...}`` (one or more attributes)
-- Aggregate functions ``COUNT {i}``, ``SUM {i}``, ``MIN {i}``, ``MAX {i}``
-- ``ORDER BY {i}`` (ascending)
+The TODOs in ``operators.cpp`` are the complete assignment surface:
 
-Implementation Details
-----------------------
+- ``Field`` comparisons: ``!=``, ``<``, ``>``, ``<=``, and ``>=``. Equality (``==``) is provided.
+- ``PrintOperator``: its constructor, ``open()``, ``next()``, and ``close()``. Its fixed ``getOutput()`` method returns no tuple.
+- ``ProjectOperator``, ``Sort``, ``HashJoin``, and ``HashAggregationOperator``: their constructors and iterator methods, including output handling.
+- Set and bag operators: ``UnionOperator``, ``UnionAll``, ``Intersect``, ``IntersectAll``, ``Except``, and ``ExceptAll``. Their constructors are provided; implement ``open()``, ``next()``, ``close()``, and ``getOutput()``.
+- The private ``RelationManager`` parsing hooks for ``FROM``, aggregate functions, ``JOIN``, and ``ORDER BY``.
+- The private ``RelationManager`` planning hooks that construct join, aggregation, and sort operators.
 
-You will work with the provided C++ skeleton code, which includes the base ``Operator`` class and derived classes for each operator, as well as a lightweight CSV-backed relation manager. Your implementation will involve:
+The query hooks are deliberately narrower than ``parseQuery()`` and ``executeQuery()``. Their surrounding parsing and execution orchestration is provided code.
 
-1. **Field Comparison Logic**: Implement comparison operators for the ``Field`` class to support predicates in selection and other operations.
+Provided / Invariants
+---------------------
 
-2. **Operator Classes**: Implement the ``open()``, ``next()``, and ``close()`` methods for each operator. Where applicable, implement the ``get_output()`` method to retrieve the current tuple.
+The following behavior is already implemented outside ``operators.cpp``:
 
-   - ``open()``: Initialize the operator before execution.
-   - ``next()``: Retrieve the next tuple. Return ``true`` if a tuple is available.
-   - ``close()``: Release resources after execution.
-   - ``get_output()``: Return the pointers to the current tuple's fields after a successful ``next()``.
+- ``Field`` storage, serialization, cloning, hashing, parsing, and equality.
+- Tuple, page, storage, and buffer-management behavior.
+- ``SimplePredicate``, ``ComplexPredicate``, and comparison-operator parsing.
+- ``InsertOperator``, ``ScanOperator``, and ``SelectOperator``.
+- Constructors for all set and bag operators, plus ``PrintOperator::getOutput()``.
+- CSV loading, relation lookup and population, and the fixed portions of ``RelationManager::parseQuery()`` and ``RelationManager::executeQuery()``.
 
-You may add additional member functions and variables to support your implementation. Use the provided ``Scan`` and ``Select`` operators as references.
+You may refer to the provided implementations of ``InsertOperator``, ``ScanOperator``, ``SelectOperator``, ``SimplePredicate``, and ``ComplexPredicate`` for examples of iterator lifecycle, input and output handling, field cloning, and ownership conventions.
 
-3. **Query parsing and execution (extended)**:
+These definitions are fixed for the lab and are not part of the student submission.
 
-   Extend ``parseQuery`` to extract and store:
+Iterator Interface
+------------------
 
-   - Selected attributes (1-based in queries -> 0-based internally)
-   - Single-relation ``FROM`` and optional ``JOIN {rel2} ON {i} = {j}``
-   - One or more ``WHERE`` conditions (combined by ``AND``). Each condition is ``{idx} <op> <literal>`` where literal may be int, float, or quoted string
-   - ``GROUP BY`` with one or more attributes
-   - One or more aggregate functions ``COUNT``, ``SUM``, ``MIN``, ``MAX``
-   - ``ORDER BY {i}`` (ascending)
+Every operator follows this interface:
 
-   Implement ``executeQuery`` to build the operator tree in this order:
+- ``open()`` initializes the operator and opens its input or inputs.
+- ``next()`` advances to the next result and returns ``true`` when a result is available.
+- ``getOutput()`` returns ``std::vector<std::unique_ptr<Field>>`` for the current result.
+- ``close()`` closes the inputs and releases or resets operator state.
 
-   - Scan (and optional HashJoin) -> Select -> HashAggregation (if present) -> Project (only if no aggregation) -> Sort
+Call ``getOutput()`` only after ``next()`` returns ``true``. Operators return owned or cloned fields rather than pointers into a child's internal tuple.
 
-   Index mapping rules you must follow:
+``PrintOperator`` writes one tuple per line. It separates fields with a comma and one space (``", "``) and terminates each tuple with a newline.
 
-   - Query indices are 1-based; convert to 0-based internally
-   - After a join, the output tuple is ``[left_columns..., right_columns...]``. Indices in WHERE, GROUP BY, and aggregates refer to the tuple flowing at that point in the pipeline
-   - When aggregation is present, the aggregation operator emits: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (in the order aggregates were specified). ``ORDER BY`` refers to these emitted indices
+Operator Semantics
+------------------
 
-4. **Aggregation semantics**:
+The following physical operators are part of the assignment:
 
-   - Without ``GROUP BY``: emit a single row containing the aggregate value(s); or, if select attributes are provided to aggregation, emit those columns of the (first) input tuple followed by the aggregate value(s)
-   - With ``GROUP BY``: for each group, emit the selected columns from the first tuple of the group (or all columns if no select list was provided to aggregation), then append aggregate value(s)
-   - Support INT/FLOAT semantics where applicable; MIN/MAX on strings use lexicographic order
+- **Projection**: emits cloned fields in the requested attribute-index order so the result does not alias the input tuple.
+- **Selection**: filters tuples using ``==``, ``!=``, ``<``, ``<=``, ``>``, or ``>=``. A ``SimplePredicate`` can compare an attribute with another attribute or with a constant.
+- **Sort**: materializes its input and applies its criteria in order. A later criterion is considered only when all earlier criterion fields compare equal, and each criterion's ``desc`` flag controls its direction.
+- **HashJoin**: performs an inner equi-join using left-side hash buckets and preserves every matching pair when join keys repeat.
+- **HashAggregationOperator**: groups tuples and computes ``COUNT``, ``SUM``, ``MIN``, and ``MAX`` aggregates.
+- **UnionOperator**, **Intersect**, and **Except**: use set semantics and remove duplicate output tuples.
+- **UnionAll**, **IntersectAll**, and **ExceptAll**: use bag semantics and retain the multiplicity required by the corresponding bag operation. ``UnionAll`` emits the left bag followed by the right bag.
 
-5. **Join semantics**:
+Hash Join Semantics
+-------------------
 
-   - Implement an inner equi-join via HashJoin
-   - Build the hash table on the left input; probe using the right input
-   - The joined tuple order is: all columns from the left tuple, followed by all columns from the right tuple
+``HashJoin`` is an inner equi-join. ``open()`` builds a hash table from the left input with one bucket per join-key value, preserving every left tuple in each bucket. ``next()`` probes with the right input and drains the complete matching left bucket before advancing to the next right tuple. Tuples without a matching key are not emitted.
 
-**Iterator Model**: Operators should interact using the iterator model, where each operator pulls data from its child operator(s).
+Repeated keys use full many-to-many multiplicity. If a key occurs ``L`` times in the left input and ``R`` times in the right input, the join emits ``L * R`` results for that key. Each result is ordered as ``[left_columns..., right_columns...]``.
+
+Aggregation Semantics
+---------------------
+
+With no grouping attributes, all input tuples belong to one global group. With ``GROUP BY``, one result is emitted for each group.
+
+For every group, the aggregation operator preserves the first input tuple as the representative tuple. Its output schema is:
+
+``[selected_fields_from_first_tuple..., aggregate_values...]``
+
+If the aggregation receives no selected attributes, it emits all fields from the representative tuple before the aggregate values. Aggregate values appear in the order in which their functions occur in the query.
+
+``COUNT`` starts at one for the first tuple in a group and increments once for each additional tuple. ``SUM`` is initialized from the first value and supports integer and floating-point fields. ``MIN`` and ``MAX`` are initialized from the first value; they support integer and floating-point fields and use lexicographic ordering for strings.
+
+Set and Bag Semantics
+---------------------
+
+The set operators emit each qualifying tuple at most once. ``UnionOperator`` emits tuples present in either input, ``Intersect`` emits tuples present in both inputs, and ``Except`` emits tuples present in the left input but absent from the right input.
+
+For the bag operators, let ``L`` and ``R`` be a tuple's multiplicities in the left and right inputs. ``UnionAll`` emits ``L + R`` copies, with all left tuples materialized before all right tuples. ``IntersectAll`` emits ``min(L, R)`` copies. ``ExceptAll`` emits ``max(L - R, 0)`` copies.
+
+Query Syntax
+------------
+
+Queries use the parenthesized Lab 5 syntax used by the tests. For example:
+
+.. code-block:: text
+
+   SELECT (1,2,3,5) FROM (users) JOIN (posts) ON (2) = (3) ORDER BY (5)
+
+A query may contain the following forms:
+
+- ``SELECT (i,j,...)``
+- ``FROM (relation)``
+- ``JOIN (relation2) ON (i) = (j)`` for an optional inner equi-join
+- ``WHERE (k) <op> literal`` with one or more conditions separated by ``AND``
+- ``GROUP BY (i,j,...)``
+- ``COUNT(i)``, ``SUM(i)``, ``MIN(i)``, and ``MAX(i)``; multiple aggregate functions may occur in one query
+- ``ORDER BY (i)`` for ascending order
+
+Clause keywords are expected in uppercase. The fixed ``WHERE`` parser accepts ``AND`` or ``and`` between conditions. The query grammar does not support ``OR``. A ``WHERE`` literal may be an integer, floating-point value, or quoted string.
+
+When implementing the parsing hooks, remember that parentheses are special regular-expression characters. Escape the literal parentheses in the query syntax. For example, a C++ raw-string pattern for ``FROM (relation)`` can use ``R"(FROM \((\w+)\))"``. Unescaped parentheses create capture groups instead of matching the parentheses present in the query text.
+
+Query Planning and Index Mapping
+--------------------------------
+
+``executeQuery()`` uses this operator order:
+
+``Scan (and optional HashJoin) -> Select -> HashAggregationOperator (if needed) -> ProjectOperator (only without aggregation) -> Sort``
+
+Use the following index-mapping rules:
+
+- Query attribute positions are one-based and must be converted to zero-based indexes internally. Indexes passed directly to operator constructors are already zero-based.
+- In ``JOIN (relation2) ON (i) = (j)``, ``i`` indexes the left input and ``j`` independently indexes the right input.
+- After a join, the output tuple is ``[left_columns..., right_columns...]``. ``WHERE``, ``GROUP BY``, and aggregate indexes refer to the tuple flowing at that point in the pipeline.
+- When aggregation has selected attributes, its output is ``[selected_columns_from_first_tuple..., aggregate_values...]``. Without selected attributes, all columns from the first tuple precede the aggregate values. Aggregate values retain query order, and ``ORDER BY`` refers to indexes in this emitted aggregation schema.
+- Without aggregation, ``ORDER BY`` uses the source attribute position and the planner maps it through projection as needed.
 
 Testing and Validation
 ----------------------
 
-Your implementation should pass all provided test cases to ensure correctness. Focus on:
+Your implementation should pass all provided tests. Pay particular attention to:
 
 - Correctness of each operator's logic.
 - Correct execution order.
@@ -96,67 +146,35 @@ Your implementation should pass all provided test cases to ensure correctness. F
 - Proper handling of edge cases.
 - Memory management and resource cleanup.
 
-Building the Code
------------------
+Build and Test
+--------------
 
-Compile your code using:
+From the ``student_lab_5`` directory, configure and build the project with CMake:
 
 .. code-block:: bash
 
-   g++ -fdiagnostics-color -std=c++17 -O3 -Wall -Werror -Wextra <file_name.cpp> -o <output_name.out>
+   cmake -S . -B build
+   cmake --build build
+   cd build
+   ./test
 
-Ensure your code compiles without warnings or errors, as warnings are treated as errors.
+Run one public test with ``./test N``, where ``N`` is from 1 through 12. Only the public test executable is included in the provided skeleton ZIP file.
 
-FAQs
-----
+Frequently Asked Questions
+--------------------------
 
-1. **How do I implement comparison logic for the ``Field`` class?**
+**Do I implement equality for** ``Field`` **?**
 
-   - You need to overload the comparison operators (``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``) for the ``Field`` class to compare field values correctly.
-   - This is essential for the ``Select`` operator and any operation that relies on comparing attribute values.
+No. ``operator==`` is provided. Implement the five comparison operators marked with TODOs in ``operators.cpp``.
 
-2. **What is the iterator model used in this assignment?**
+**Do I implement** ``SelectOperator`` **or compound query predicates?**
 
-   - The iterator model is a way of processing data where each operator requests data from its child by calling ``next()``.
-   - If the child returns ``true``, the operator can then process the data. This allows for efficient, pipeline-style execution with minimal memory overhead.
+No. ``SelectOperator``, ``SimplePredicate``, ``ComplexPredicate``, and the fixed ``WHERE`` parsing are provided. Your other operators use their output through the normal iterator interface. The query layer supports multiple ``WHERE`` conditions joined by ``AND``, but not ``OR``.
 
-3. **How should I handle sorting in the ``Sort`` operator?**
+**May I add helper methods or member variables?**
 
-   - In the ``Sort`` operator's ``open()`` method, you can read all tuples from the child operator and store them in a data structure like a vector.
-   - Then, sort the vector based on the specified attributes and sort directions.
-   - In the ``next()`` method, return tuples from the sorted vector one at a time.
+Do not change the fixed headers or class layouts. You may add file-local helper functions and types inside ``operators.cpp``.
 
-4. **What's the difference between set semantics and bag semantics?**
+**Does an** ``All`` **operator simply concatenate its inputs?**
 
-   - **Set Semantics**: Duplicate tuples are not included in the result. Operations like ``Union``, ``Intersect``, and ``Except`` eliminate duplicates.
-   - **Bag Semantics**: Duplicates are included in the result. Operations like ``UnionAll``, ``IntersectAll``, and ``ExceptAll`` retain duplicates based on their occurrence in the inputs.
-
-5. **How do I extend ``parseQuery`` and ``executeQuery`` for SQL-like queries?**
-
-   - Parse the supported clauses (``SELECT``, ``FROM``, optional ``JOIN``, optional multi-condition ``WHERE`` separated by ``AND``, optional multi-attribute ``GROUP BY``, one or more aggregates, optional ``ORDER BY``) and construct the operator tree in the required order.
-   - Ensure index mapping is correct after joins and projections.
-
-6. **Can I add additional helper methods or variables?**
-
-   - Yes, you are encouraged to add helper methods and member variables as needed to support your implementation, as long as they adhere to the assignment's requirements.
-
-7. **How do I handle multiple aggregates in ``HashAggregation``?**
-
-   - You can use a data structure (e.g., a map) to group tuples based on the grouping attributes.
-   - Then, compute the aggregates for each group by iterating over the grouped data and calculating the required aggregate functions.
-
-8. **Do I need to handle complex predicates in ``Select``?**
-
-   - For this assignment, each predicate consists of a single relational operator between an attribute and another attribute or constant.
-   - You are not required to handle compound predicates involving logical operators like ``AND`` or ``OR``.
-
-9. **What resources can I refer to for this assignment?**
-
-   - The skeleton code and provided operator implementations (``Scan``, ``Select``).
-   - Lecture notes or textbooks covering database operators and the iterator model.
-   - Online resources or documentation on database physical operator implementations.
-
-10. **What are the expected join and aggregation outputs?**
-
-   - Join output: ``[left_columns..., right_columns...]``.
-   - Aggregation output: ``[selected_columns_from_first_tuple..., aggregate_values...]`` (or all columns from the first tuple if no select list was given to aggregation).
+Only ``UnionAll`` concatenates both bags. ``IntersectAll`` emits the minimum multiplicity from the two inputs, and ``ExceptAll`` subtracts right-side multiplicity from left-side multiplicity without going below zero.
