@@ -121,6 +121,33 @@ The `fix_page` and `unfix_page` methods are the core of your buffer manager impl
 3. **Unlock the Page**:
     - Release the lock on the frame via `FrameLockTable` (shared or exclusive, based on how it was originally locked).
 
+Other Methods to Implement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The skeleton has several smaller methods for you to fill in. The tests call a number of them
+directly, so none of them are optional.
+
+`load_and_pin_page(page_id, exclusive, new_frame)`
+    This helper function should load your page into a frame and handle pinning, returning a `PageGuard` for
+    it. `fix_page` should take the buffer manager's coarse lock before calling this method,
+    and this method must release that lock before it does any disk I/O.
+
+`evict_page()`
+    Requests an eviction candidate from the policy and removes it from the buffer pool. Flush the page
+    first if it is dirty, then clear the frame metadata so another page can reuse the slot.
+
+`flushPage(frame_id)`
+    Writes the frame's page back to disk through `StorageManager` if the frame is dirty.
+
+`~BufferManager()`
+    Flushes all dirty pages before the buffer manager goes away, so that data you write in one run
+    is still on disk the next time the database opens.
+
+`TwoQPolicy::get_fifo_list()`, `TwoQPolicy::get_lru_list()`
+    Return the current contents of each queue, oldest entry first. The tests use these to check
+    that your 2Q queues follow the order described above.
+
+
 `PageGuard`
 ~~~~~~~~~~~
 
@@ -149,6 +176,11 @@ Implementation Clarifications
 ----------------------
 
 - FrameID: It can be treated as an identifier or index for a BufferFrame.
+- Buffer sizes are fixed by `BufferManager`. `MAX_PAGES = 1000` is the largest number of pages the
+  database can store, so valid page IDs run from 0 to 999. `MAX_PAGES_IN_MEMORY = 10` is how many
+  frames the buffer pool contains, which is the number of pages that fit in memory at once. Read
+  both values through `get_max_pages()` and `get_max_pages_in_memory()` instead of hard-coding the
+  numbers. `fix_page` should reject any `page_id` equal to or above `MAX_PAGES` as out of range.
 - **FrameLockTable**: The `FrameLockTable` is responsible for providing fine-grained synchronization at the frame level. Instead of using a single giant lock for the entire buffer pool (which would destroy concurrency), you must use `FrameLockTable::lock_shared(FrameID)`, `lock_exclusive(FrameID)`, and corresponding unlock methods to protect individual `BufferFrame`s while they are pinned in memory. For instance, when `fix_page` retrieves a frame, it should acquire the appropriate lock using `FrameLockTable` before returning the `PageGuard`. When `unfix_page` is called, the lock should be released.
 - Use `StorageManager` methods to load or flush pages when necessary.
 - Policy class: The provided `TwoQPolicy` class needs to be completed. It manages the FIFO and LRU queues and determines eviction candidates.
@@ -187,11 +219,28 @@ General Guidelines
 Building the Code
 -----------------
 
-We have provided a `Makefile` to simplify the build process. You can build the code with the following command:
+The starter code includes a `CMakeLists.txt`. From the root of the assignment folder, run:
 
 .. code-block:: bash
 
-    make clean && make
+    cmake -B build -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+
+This produces `build/lab2.out`. Pass `-DCMAKE_BUILD_TYPE=Release` so that your build uses the same
+`-O3` optimization level as the autograder. The default build type is `Debug`, which is useful with
+a debugger but runs the timing-sensitive tests much more slowly.
+
+To invoke the compiler directly, list all of the source files and add the include path:
+
+.. code-block:: bash
+
+    g++ -fdiagnostics-color -std=c++17 -pthread -O3 -Wall -Werror -Wextra \
+        src/buffer/buffer_manager.cpp \
+        src/include/storage/storage_manager.cpp \
+        src/include/buffer/frame_lock_table.cpp \
+        test/test.cpp \
+        -Isrc/include -I. \
+        -o lab2.out
 
 Make sure that your project compiles without any warnings, as we treat warnings as errors. The compilation will produce an executable in the `build/` directory.
 
